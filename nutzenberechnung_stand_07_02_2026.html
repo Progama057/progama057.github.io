@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Nutzenberechnung – horizontal/vertikal mit Passermarken & Greiferkante</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            /* iOS: Kein grauer Tap-Hintergrund */
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        :root {
+            --bg-body: #f3f4f6;
+            --bg-app: #ffffff;
+            --bg-sidebar: #f9fafb;
+            --bg-input: #ffffff;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --shadow-color: rgba(0, 0, 0, 0.08);
+            --table-row-even: #f9fafb;
+            --table-row-hover: #eff6ff;
+            --error-color: #b91c1c;
+        }
+
+        .dark-mode {
+            --bg-body: #111827;
+            --bg-app: #1f2937;
+            --bg-sidebar: #374151;
+            --bg-input: #4b5563;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --border-color: #4b5563;
+            --primary-color: #3b82f6;
+            --primary-hover: #60a5fa;
+            --shadow-color: rgba(0, 0, 0, 0.5);
+            --table-row-even: #374151;
+            --table-row-hover: #4b5563;
+            --error-color: #f87171;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: var(--bg-body);
+            color: var(--text-main);
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .app {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: var(--bg-app);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px var(--shadow-color);
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            transition: background 0.3s;
+            position: relative;
+        }
+
+        .sidebar {
+            flex: 0 0 320px;
+            background: var(--bg-sidebar);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            /* Prevents flex item from overflowing */
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 1.6rem;
+            color: var(--text-main);
+        }
+
+        h2.section-title {
+            font-size: 1.1rem;
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: var(--text-main);
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        p.hint {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .input-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            font-size: 16px;
+            /* iOS: Verhindert Auto-Zoom beim Fokussieren */
+            outline: none;
+            background: var(--bg-input);
+            color: var(--text-main);
+            transition: background 0.3s, border-color 0.3s, color 0.3s;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+
+        .inline-input {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .inline-input span {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .note {
+            display: block;
+            margin-top: 4px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        .error {
+            color: var(--error-color);
+            font-size: 0.9rem;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            min-height: 1.2em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        thead {
+            background: var(--bg-sidebar);
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        th,
+        td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border-color);
+            text-align: left;
+            vertical-align: middle;
+            color: var(--text-main);
+        }
+
+        th {
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:nth-child(even) {
+            background: var(--table-row-even);
+        }
+
+        tbody tr:hover {
+            background: var(--table-row-hover);
+        }
+
+        .format-col {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .muted {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 10px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: background 0.15s;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .footer-info {
+            margin-top: 18px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Dark Mode Button */
+        .theme-toggle-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.3s, color 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-toggle-btn:hover {
+            background: var(--table-row-hover);
+        }
+
+        /* Recommendation Highlight */
+        .recommendation {
+            background-color: #32cd32 !important;
+            /* Lime Green */
+            color: #111827 !important;
+            /* Ensure text is readable */
+            font-weight: bold;
+        }
+
+        .recommendation td {
+            color: #111827 !important;
+        }
+
+        /* Adjust hover for recommendation to keep it visible but interactive */
+        tbody tr.recommendation:hover {
+            background-color: #2eb82e !important;
+        }
+
+        /* Preview Overlay */
+        .preview-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            -webkit-backdrop-filter: blur(2px);
+            /* iOS Support */
+            backdrop-filter: blur(2px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .preview-content {
+            background: var(--bg-app);
+            border-radius: 12px;
+            padding: 20px;
+            width: min(600px, 95vw);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .preview-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .preview-close-btn {
+            border: none;
+            background: transparent;
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            line-height: 1;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .preview-close-btn:hover {
+            background: var(--bg-sidebar);
+            color: var(--text-main);
+        }
+
+        .preview-svg-wrapper {
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: #ffffff;
+            /* keep preview white background for contrast */
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .preview-note {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        @media (max-width: 900px) {
+            .app {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                flex: none;
+            }
+
+            /* Prevent button from overlapping title on mobile */
+            .sidebar h2.section-title {
+                padding-right: 140px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            thead {
+                display: none;
+            }
+
+            tbody tr {
+                display: block;
+                margin-bottom: 10px;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+            }
+
+            td {
+                display: flex;
+                flex-direction: column;
+                padding: 12px;
+                text-align: right;
+                border-bottom: 1px solid #f3f4f6;
+            }
+
+            td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                text-align: left;
+                margin-bottom: 4px;
+                color: #6b7280;
+                font-size: 0.8rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <button id="themeToggle" class="theme-toggle-btn" title="Dark Mode umschalten">
+            <span class="icon">🌙</span>
+            <span>Dark Mode</span>
+        </button>
+        <!-- LINKES PANEL (Eingaben) -->
+        <div class="sidebar">
+            <h2 class="section-title">Einstellungen</h2>
+
+            <div class="input-group">
+                <label for="productWidth">Produktbreite</label>
+                <div class="inline-input">
+                    <input type="number" id="productWidth" min="1" step="0.1" placeholder="z. B. 100">
+                    <span>mm</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="productHeight">Produkthöhe</label>
+                <div class="inline-input">
+                    <input type="number" id="productHeight" min="1" step="0.1" placeholder="z. B. 210">
+                    <span>mm</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="productionQuantity">Produktionsmenge (optional)</label>
+                <div class="inline-input">
+                    <input type="number" id="productionQuantity" min="0" step="1" placeholder="Stückzahl">
+                    <span>Stk.</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="passer">Passermarken / Rand</label>
+                <div class="inline-input">
+                    <input type="number" id="passer" min="0" step="0.1" value="0">
+                    <span>mm</span>
+                </div>
+                <span class="note">Rundum (oben/unten/links/rechts).</span>
+            </div>
+
+            <div class="input-group">
+                <label for="gripperValue">Greiferkante</label>
+                <div class="inline-input">
+                    <input type="number" id="gripperValue" min="0" step="0.1" value="0">
+                    <span>mm</span>
+                </div>
+                <div style="margin-top: 6px;">
+                    <select id="gripperSide">
+                        <option value="none">– keine –</option>
+                        <option value="oben">oben</option>
+                        <option value="unten">unten</option>
+                        <option value="links">links</option>
+                        <option value="rechts">rechts</option>
+                    </select>
+                </div>
+                <span class="note">Nur auf gewählter Seite.</span>
+            </div>
+
+            <h2 class="section-title" style="margin-top: 30px;">Eigenes Format</h2>
+            <div class="input-group">
+                <label for="customWidth">Bogenbreite</label>
+                <div class="inline-input">
+                    <input type="number" id="customWidth" min="1" step="1" placeholder="Breite">
+                    <span>mm</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="customHeight">Bogenhöhe</label>
+                <div class="inline-input">
+                    <input type="number" id="customHeight" min="1" step="1" placeholder="Höhe">
+                    <span>mm</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <button id="addFormatBtn" class="btn-primary">Format hinzufügen</button>
+            </div>
+        </div>
+
+        <!-- RECHTES PANEL (Ergebnisse) -->
+        <div class="main-content">
+            <h1>Nutzenberechnung</h1>
+            <p class="hint">
+                Gib links die Produktmaße ein. Die Tabelle zeigt die maximal möglichen Nutzen für verschiedene
+                Bogenformate. Klicke auf eine Zeile für die Vorschau.
+            </p>
+
+            <div id="error" class="error"></div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Druckbogen</th>
+                        <th>Ausrichtung</th>
+                        <th>Nutzen</th>
+                        <th>Anordnung</th>
+                        <th>Fläche</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                    <!-- Zeilen werden per JS gefüllt -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Preview Overlay -->
+    <div id="previewOverlay" class="preview-overlay">
+        <div class="preview-content">
+            <div class="preview-header">
+                <span id="previewTitle" class="preview-title"></span>
+                <button id="previewClose" class="preview-close-btn" type="button">&times;</button>
+            </div>
+            <div class="preview-svg-wrapper">
+                <svg id="previewSvg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
+            <p class="preview-note">
+                Darstellung schematisch, nicht maßstabsgerecht. Blau: Bogen, hell: nutzbare Fläche, dunkel: Nutzen.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const sheetFormats = [
+            { name: "1030 × 540 mm", width: 1030, height: 540 },
+            { name: "930 × 630 mm", width: 930, height: 630 },
+            { name: "1000 × 700 mm", width: 1000, height: 700 },
+            { name: "700 × 500 mm", width: 700, height: 500 },
+            { name: "540 × 515 mm", width: 540, height: 515 },
+            { name: "540 × 343 mm", width: 540, height: 343 },
+            { name: "630 × 465 mm", width: 630, height: 465 },
+            { name: "630 × 310 mm", width: 630, height: 310 }
+        ];
+
+        const ORIENTATIONS = ["h", "v"]; // h = horizontal, v = vertikal
+
+        function formatPercent(value) {
+            if (!isFinite(value) || value < 0) return "–";
+            return value.toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " %";
+        }
+
+        function createInitialRows() {
+            const tbody = document.getElementById("resultsBody");
+            tbody.innerHTML = "";
+            sheetFormats.forEach((fmt, index) => {
+                ORIENTATIONS.forEach((ori) => {
+                    const tr = document.createElement("tr");
+                    tr.dataset.formatIndex = String(index);
+                    tr.dataset.orientation = ori;
+
+                    const tdFormat = document.createElement("td");
+                    tdFormat.className = "format-col";
+                    tdFormat.setAttribute("data-label", "Druckbogen");
+                    tdFormat.textContent = fmt.name;
+                    tr.appendChild(tdFormat);
+
+                    const tdOri = document.createElement("td");
+                    tdOri.id = "ori-" + index + "-" + ori;
+                    tdOri.setAttribute("data-label", "Ausrichtung");
+                    tdOri.textContent = ori === "h" ? "horizontal (nicht gedreht)" : "vertikal (gedreht)";
+                    tr.appendChild(tdOri);
+
+                    const tdPieces = document.createElement("td");
+                    tdPieces.id = "pieces-" + index + "-" + ori;
+                    tdPieces.setAttribute("data-label", "Nutzen");
+                    tdPieces.className = "muted";
+                    tdPieces.textContent = "Bitte Produktmaße eingeben";
+                    tr.appendChild(tdPieces);
+
+                    const tdLayout = document.createElement("td");
+                    tdLayout.id = "layout-" + index + "-" + ori;
+                    tdLayout.setAttribute("data-label", "Anordnung");
+                    tdLayout.textContent = "–";
+                    tr.appendChild(tdLayout);
+
+                    const tdEfficiency = document.createElement("td");
+                    tdEfficiency.id = "efficiency-" + index + "-" + ori;
+                    tdEfficiency.setAttribute("data-label", "Flächenausnutzung");
+                    tdEfficiency.textContent = "–";
+                    tr.appendChild(tdEfficiency);
+
+                    tr.addEventListener("click", onRowClick);
+
+                    tbody.appendChild(tr);
+                });
+            });
+        }
+
+        function recalc() {
+            const wInput = document.getElementById("productWidth");
+            const hInput = document.getElementById("productHeight");
+            const qInput = document.getElementById("productionQuantity");
+            const passerInput = document.getElementById("passer");
+            const gripperValueInput = document.getElementById("gripperValue");
+            const gripperSideSelect = document.getElementById("gripperSide");
+            const errorEl = document.getElementById("error");
+
+            const wValue = wInput.value.replace(",", ".");
+            const hValue = hInput.value.replace(",", ".");
+            const qValueRaw = qInput.value.replace(",", "."); // Menge
+            const passerValueRaw = passerInput.value.replace(",", ".");
+            const gripperValueRaw = gripperValueInput.value.replace(",", ".");
+
+            const productWidth = parseFloat(wValue);
+            const productHeight = parseFloat(hValue);
+            const productionQuantity = parseInt(qValueRaw, 10); // Menge als Integer
+            let passer = parseFloat(passerValueRaw);
+            let gripperValue = parseFloat(gripperValueRaw);
+            const gripperSide = gripperSideSelect.value;
+
+            if (!wValue && !hValue) {
+                errorEl.textContent = "";
+                createInitialRows();
+                return;
+            }
+
+            if (isNaN(productWidth) || productWidth <= 0 || isNaN(productHeight) || productHeight <= 0) {
+                errorEl.textContent = "Produktbreite und -höhe müssen > 0 sein.";
+                return;
+            }
+
+            if (isNaN(passer) || passer < 0) passer = 0;
+            if (isNaN(gripperValue) || gripperValue < 0) gripperValue = 0;
+
+            errorEl.textContent = "";
+
+            let results = [];
+
+            // Helper for display text
+            function getPiecesText(pieces) {
+                let text = pieces.toString() + " Nutzen";
+                if (productionQuantity > 0 && pieces > 0) {
+                    const requiredSheets = Math.ceil(productionQuantity / pieces);
+                    text += ` (ca. ${requiredSheets} Bogen)`;
+                }
+                return text;
+            }
+
+            sheetFormats.forEach((fmt, index) => {
+                const sheetWidth = fmt.width;
+                const sheetHeight = fmt.height;
+
+                let usableWidth = sheetWidth;
+                let usableHeight = sheetHeight;
+
+                // Greiferkante
+                if (gripperValue > 0 && gripperSide !== "none") {
+                    if (gripperSide === "links" || gripperSide === "rechts") {
+                        usableWidth -= gripperValue;
+                    } else {
+                        usableHeight -= gripperValue;
+                    }
+                }
+
+                // Passermarken (rundum)
+                usableWidth -= 2 * passer;
+                usableHeight -= 2 * passer;
+
+                // Reset rows visibility and highlight
+                ["h", "v"].forEach(ori => {
+                    const row = document.getElementById("pieces-" + index + "-" + ori).parentElement;
+                    row.style.display = "table-row";
+                    row.classList.remove("recommendation");
+                });
+
+                if (usableWidth <= 0 || usableHeight <= 0) {
+                    ORIENTATIONS.forEach((ori) => {
+                        const piecesCell = document.getElementById("pieces-" + index + "-" + ori);
+                        const layoutCell = document.getElementById("layout-" + index + "-" + ori);
+                        const effCell = document.getElementById("efficiency-" + index + "-" + ori);
+
+                        piecesCell.textContent = "Zu viel Rand, kein Platz";
+                        piecesCell.className = "muted";
+                        layoutCell.textContent = "–";
+                        effCell.textContent = "–";
+                    });
+                    return;
+                }
+
+                const productArea = productWidth * productHeight;
+                const sheetArea = usableWidth * usableHeight;
+
+                // Calculate metrics for both orientations
+                function calcOrientation(ori, uW, uH) {
+                    const pW = ori === "h" ? productWidth : productHeight;
+                    const pH = ori === "h" ? productHeight : productWidth;
+
+                    const countX = Math.floor(uW / pW);
+                    const countY = Math.floor(uH / pH);
+                    const pieces = Math.max(countX, 0) * Math.max(countY, 0);
+                    const usedArea = pieces * productArea;
+                    const efficiency = pieces > 0 ? (usedArea / sheetArea) * 100 : 0;
+
+                    return { pieces, efficiency, countX, countY };
+                }
+
+                const resH = calcOrientation("h", usableWidth, usableHeight);
+                const resV = calcOrientation("v", usableWidth, usableHeight);
+
+                // Update DOM H
+                const piecesCellH = document.getElementById("pieces-" + index + "-h");
+                const layoutCellH = document.getElementById("layout-" + index + "-h");
+                const effCellH = document.getElementById("efficiency-" + index + "-h");
+                const rowH = piecesCellH.parentElement;
+
+                if (resH.pieces === 0) {
+                    piecesCellH.textContent = "Passt nicht auf den Bogen";
+                    piecesCellH.className = "muted";
+                    layoutCellH.textContent = "–";
+                    effCellH.textContent = "–";
+                } else {
+                    piecesCellH.textContent = getPiecesText(resH.pieces);
+                    piecesCellH.className = "";
+                    layoutCellH.textContent = resH.countX + " nebeneinander × " + resH.countY + " Reihen";
+                    effCellH.textContent = formatPercent(resH.efficiency);
+                    results.push({ row: rowH, pieces: resH.pieces, efficiency: resH.efficiency });
+                }
+
+                // Update DOM V
+                const piecesCellV = document.getElementById("pieces-" + index + "-v");
+                const layoutCellV = document.getElementById("layout-" + index + "-v");
+                const effCellV = document.getElementById("efficiency-" + index + "-v");
+                const rowV = piecesCellV.parentElement;
+
+                if (resV.pieces === 0) {
+                    piecesCellV.textContent = "Passt nicht auf den Bogen";
+                    piecesCellV.className = "muted";
+                    layoutCellV.textContent = "–";
+                    effCellV.textContent = "–";
+                } else {
+                    piecesCellV.textContent = getPiecesText(resV.pieces);
+                    piecesCellV.className = "";
+                    layoutCellV.textContent = resV.countX + " nebeneinander × " + resV.countY + " Reihen";
+                    effCellV.textContent = formatPercent(resV.efficiency);
+
+                    // Check duplicate: if V is identical to H, hide V
+                    // Identical means same pieces AND same efficiency
+                    if (resH.pieces > 0 && resV.pieces === resH.pieces && Math.abs(resV.efficiency - resH.efficiency) < 0.01) {
+                        rowV.style.display = "none";
+                    } else {
+                        results.push({ row: rowV, pieces: resV.pieces, efficiency: resV.efficiency });
+                    }
+                }
+            });
+
+            // Highlight best option
+            if (results.length > 0) {
+                // Sort by pieces desc, then efficiency desc
+                results.sort((a, b) => {
+                    if (b.pieces !== a.pieces) return b.pieces - a.pieces;
+                    return b.efficiency - a.efficiency;
+                });
+
+                const best = results[0];
+                if (best.pieces > 0) {
+                    // Highlight all that match the best score and efficiency
+                    results.forEach(res => {
+                        if (res.pieces === best.pieces && Math.abs(res.efficiency - best.efficiency) < 0.01) {
+                            res.row.classList.add("recommendation");
+                        }
+                    });
+                }
+            }
+        }
+
+        function onRowClick(event) {
+            const tr = event.currentTarget;
+            const formatIndex = parseInt(tr.dataset.formatIndex, 10);
+            const orientation = tr.dataset.orientation;
+
+            const wInput = document.getElementById("productWidth");
+            const hInput = document.getElementById("productHeight");
+            const passerInput = document.getElementById("passer");
+            const gripperValueInput = document.getElementById("gripperValue");
+            const gripperSideSelect = document.getElementById("gripperSide");
+            const errorEl = document.getElementById("error");
+
+            const wValue = wInput.value.replace(",", ".");
+            const hValue = hInput.value.replace(",", ".");
+            const passerValueRaw = passerInput.value.replace(",", ".");
+            const gripperValueRaw = gripperValueInput.value.replace(",", ".");
+
+            const productWidth = parseFloat(wValue);
+            const productHeight = parseFloat(hValue);
+            let passer = parseFloat(passerValueRaw);
+            let gripperValue = parseFloat(gripperValueRaw);
+            const gripperSide = gripperSideSelect.value;
+
+            if (isNaN(productWidth) || productWidth <= 0 || isNaN(productHeight) || productHeight <= 0) {
+                errorEl.textContent = "Für die Vorschau zuerst gültige Produktmaße eingeben.";
+                return;
+            }
+
+            if (isNaN(passer) || passer < 0) passer = 0;
+            if (isNaN(gripperValue) || gripperValue < 0) gripperValue = 0;
+
+            const fmt = sheetFormats[formatIndex];
+            const sheetWidth = fmt.width;
+            const sheetHeight = fmt.height;
+
+            let usableWidth = sheetWidth;
+            let usableHeight = sheetHeight;
+
+            if (gripperValue > 0 && gripperSide !== "none") {
+                if (gripperSide === "links" || gripperSide === "rechts") {
+                    usableWidth -= gripperValue;
+                } else {
+                    usableHeight -= gripperValue;
+                }
+            }
+
+            usableWidth -= 2 * passer;
+            usableHeight -= 2 * passer;
+
+            if (usableWidth <= 0 || usableHeight <= 0) {
+                errorEl.textContent = "Mit den aktuellen Rand-Einstellungen bleibt keine nutzbare Fläche für dieses Format.";
+                return;
+            }
+
+            const orientationLabel = orientation === "h" ? "horizontal (nicht gedreht)" : "vertikal (gedreht)";
+            const title = fmt.name + " – " + orientationLabel;
+            showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usableHeight,
+                productWidth, productHeight, passer, gripperValue, gripperSide, title);
+        }
+
+        function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usableHeight,
+            productWidth, productHeight, passer, gripperValue, gripperSide, title) {
+            const overlay = document.getElementById("previewOverlay");
+            const titleEl = document.getElementById("previewTitle");
+            const svg = document.getElementById("previewSvg");
+
+            titleEl.textContent = title;
+
+            while (svg.firstChild) {
+                svg.removeChild(svg.firstChild);
+            }
+
+            const viewW = 400;
+            const viewH = 300;
+
+            const scaleBase = Math.min((viewW - 40) / sheetWidth, (viewH - 40) / sheetHeight);
+            const sheetWpx = sheetWidth * scaleBase;
+            const sheetHpx = sheetHeight * scaleBase;
+            const sheetX = (viewW - sheetWpx) / 2;
+            const sheetY = (viewH - sheetHpx) / 2;
+
+            const sheetRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            sheetRect.setAttribute("x", sheetX);
+            sheetRect.setAttribute("y", sheetY);
+            sheetRect.setAttribute("width", sheetWpx);
+            sheetRect.setAttribute("height", sheetHpx);
+            sheetRect.setAttribute("fill", "#dbeafe");
+            sheetRect.setAttribute("stroke", "#1d4ed8");
+            sheetRect.setAttribute("stroke-width", "1.5");
+            svg.appendChild(sheetRect);
+
+            if (gripperValue > 0 && gripperSide !== "none") {
+                const gripperPx = gripperValue * scaleBase;
+                const gripperRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                if (gripperSide === "oben") {
+                    gripperRect.setAttribute("x", sheetX);
+                    gripperRect.setAttribute("y", sheetY);
+                    gripperRect.setAttribute("width", sheetWpx);
+                    gripperRect.setAttribute("height", gripperPx);
+                } else if (gripperSide === "unten") {
+                    gripperRect.setAttribute("x", sheetX);
+                    gripperRect.setAttribute("y", sheetY + sheetHpx - gripperPx);
+                    gripperRect.setAttribute("width", sheetWpx);
+                    gripperRect.setAttribute("height", gripperPx);
+                } else if (gripperSide === "links") {
+                    gripperRect.setAttribute("x", sheetX);
+                    gripperRect.setAttribute("y", sheetY);
+                    gripperRect.setAttribute("width", gripperPx);
+                    gripperRect.setAttribute("height", sheetHpx);
+                } else if (gripperSide === "rechts") {
+                    gripperRect.setAttribute("x", sheetX + sheetWpx - gripperPx);
+                    gripperRect.setAttribute("y", sheetY);
+                    gripperRect.setAttribute("width", gripperPx);
+                    gripperRect.setAttribute("height", sheetHpx);
+                }
+                gripperRect.setAttribute("fill", "#fecaca");
+                gripperRect.setAttribute("stroke", "#b91c1c");
+                gripperRect.setAttribute("stroke-width", "1");
+                gripperRect.setAttribute("fill-opacity", "0.7");
+                svg.appendChild(gripperRect);
+            }
+
+            let usableX = sheetX;
+            let usableY = sheetY;
+            let usableWpx = sheetWpx;
+            let usableHpx = sheetHpx;
+
+            if (gripperValue > 0 && gripperSide !== "none") {
+                const gripperPx = gripperValue * scaleBase;
+                if (gripperSide === "oben") {
+                    usableY += gripperPx;
+                    usableHpx -= gripperPx;
+                } else if (gripperSide === "unten") {
+                    usableHpx -= gripperPx;
+                } else if (gripperSide === "links") {
+                    usableX += gripperPx;
+                    usableWpx -= gripperPx;
+                } else if (gripperSide === "rechts") {
+                    usableWpx -= gripperPx;
+                }
+            }
+
+            const passerPx = passer * scaleBase;
+            usableX += passerPx;
+            usableY += passerPx;
+            usableWpx -= 2 * passerPx;
+            usableHpx -= 2 * passerPx;
+
+            if (usableWpx > 0 && usableHpx > 0) {
+                const usableRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                usableRect.setAttribute("x", usableX);
+                usableRect.setAttribute("y", usableY);
+                usableRect.setAttribute("width", usableWpx);
+                usableRect.setAttribute("height", usableHpx);
+                usableRect.setAttribute("fill", "#e5e7eb");
+                usableRect.setAttribute("stroke", "#6b7280");
+                usableRect.setAttribute("stroke-dasharray", "4 3");
+                usableRect.setAttribute("stroke-width", "1");
+                svg.appendChild(usableRect);
+            }
+
+            const prodWmm = orientation === "h" ? productWidth : productHeight;
+            const prodHmm = orientation === "h" ? productHeight : productWidth;
+            const prodWpx = prodWmm * scaleBase;
+            const prodHpx = prodHmm * scaleBase;
+
+            const countX = Math.floor(usableWpx / prodWpx);
+            const countY = Math.floor(usableHpx / prodHpx);
+
+            for (let ix = 0; ix < countX; ix++) {
+                for (let iy = 0; iy < countY; iy++) {
+                    const x = usableX + ix * prodWpx;
+                    const y = usableY + iy * prodHpx;
+                    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    r.setAttribute("x", x + 0.5);
+                    r.setAttribute("y", y + 0.5);
+                    r.setAttribute("width", prodWpx - 1);
+                    r.setAttribute("height", prodHpx - 1);
+                    r.setAttribute("fill", "#1d4ed8");
+                    r.setAttribute("fill-opacity", "0.6");
+                    r.setAttribute("stroke", "#1e3a8a");
+                    r.setAttribute("stroke-width", "0.5");
+                    svg.appendChild(r);
+                }
+            }
+
+            overlay.style.display = "flex";
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Load custom formats from LocalStorage
+            const storedFormats = localStorage.getItem("customFormats");
+            if (storedFormats) {
+                try {
+                    const parsedFormats = JSON.parse(storedFormats);
+                    parsedFormats.forEach(fmt => sheetFormats.push(fmt));
+                } catch (e) {
+                    console.error("Fehler beim Laden der eigenen Formate", e);
+                }
+            }
+
+            createInitialRows();
+            document.getElementById("productWidth").addEventListener("input", recalc);
+            document.getElementById("productHeight").addEventListener("input", recalc);
+            document.getElementById("productionQuantity").addEventListener("input", recalc);
+            document.getElementById("passer").addEventListener("input", recalc);
+            document.getElementById("gripperValue").addEventListener("input", recalc);
+            document.getElementById("gripperSide").addEventListener("change", recalc);
+
+            document.getElementById("addFormatBtn").addEventListener("click", () => {
+                const wInput = document.getElementById("customWidth");
+                const hInput = document.getElementById("customHeight");
+                const wValRaw = parseFloat(wInput.value.replace(",", "."));
+                const hValRaw = parseFloat(hInput.value.replace(",", "."));
+                const errorEl = document.getElementById("error");
+
+                if (isNaN(wValRaw) || wValRaw <= 0 || isNaN(hValRaw) || hValRaw <= 0) {
+                    errorEl.textContent = "Bitte gültige Breite und Höhe für das eigene Format eingeben.";
+                    return;
+                }
+
+                // Clear separate error if any
+                if (errorEl.textContent.includes("Bitte gültige Breite")) {
+                    errorEl.textContent = "";
+                }
+
+                const wVal = Math.max(wValRaw, hValRaw);
+                const hVal = Math.min(wValRaw, hValRaw);
+
+                const newFormat = {
+                    name: Math.round(wVal) + " × " + Math.round(hVal) + " mm (Eigenes)",
+                    width: wVal,
+                    height: hVal
+                };
+
+                sheetFormats.push(newFormat);
+
+                // Save to LocalStorage
+                try {
+                    const currentCustoms = localStorage.getItem("customFormats");
+                    let customsArr = currentCustoms ? JSON.parse(currentCustoms) : [];
+                    customsArr.push(newFormat);
+                    localStorage.setItem("customFormats", JSON.stringify(customsArr));
+                } catch (e) {
+                    console.error("Fehler beim Speichern des Formats", e);
+                }
+
+                wInput.value = "";
+                hInput.value = "";
+
+                createInitialRows();
+                recalc();
+            });
+
+            const overlay = document.getElementById("previewOverlay");
+            const closeBtn = document.getElementById("previewClose");
+
+            closeBtn.addEventListener("click", () => {
+                overlay.style.display = "none";
+            });
+
+            overlay.addEventListener("click", (e) => {
+                if (e.target === overlay) {
+                    overlay.style.display = "none";
+                }
+            });
+        });
+
+        // Dark Mode Logic
+        const themeToggleBtn = document.getElementById("themeToggle");
+        const iconSpan = themeToggleBtn.querySelector(".icon");
+        const textSpan = themeToggleBtn.querySelector("span:last-child");
+
+        function updateTheme(isDark) {
+            if (isDark) {
+                document.body.classList.add("dark-mode");
+                iconSpan.textContent = "☀️";
+                textSpan.textContent = "Light Mode";
+            } else {
+                document.body.classList.remove("dark-mode");
+                iconSpan.textContent = "🌙";
+                textSpan.textContent = "Dark Mode";
+            }
+        }
+
+        // Check local storage
+        const savedTheme = localStorage.getItem("theme");
+        if (savedTheme === "dark") {
+            updateTheme(true);
+        }
+
+        themeToggleBtn.addEventListener("click", () => {
+            const isDark = document.body.classList.contains("dark-mode");
+            if (isDark) {
+                updateTheme(false);
+                localStorage.setItem("theme", "light");
+            } else {
+                updateTheme(true);
+                localStorage.setItem("theme", "dark");
+            }
+        });
+    </script>
+</body>
+
+</html>
