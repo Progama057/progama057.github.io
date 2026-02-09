@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Nutzenberechnung – horizontal/vertikal mit Passermarken & Greiferkante</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="dimensionsDisplay"></div>
+    <div class="app">
+        <button id="themeToggle" class="theme-toggle-btn" title="Dark Mode umschalten">
+            <span class="icon">🌙</span>
+            <span>Dark Mode</span>
+        </button>
+        <!-- LINKES PANEL (Eingaben) -->
+        <div class="sidebar">
+            <h2 class="section-title">Einstellungen</h2>
+
+            <div class="input-group">
+                <label for="productWidth">Produktbreite</label>
+                <div class="inline-input">
+                    <input type="number" id="productWidth" min="1" step="0.1" placeholder="z. B. 100">
+                    <span>mm</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="productHeight">Produkthöhe</label>
+                <div class="inline-input">
+                    <input type="number" id="productHeight" min="1" step="0.1" placeholder="z. B. 210">
+                    <span>mm</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="productionQuantity">Produktionsmenge (optional)</label>
+                <div class="inline-input">
+                    <input type="number" id="productionQuantity" min="0" step="1" placeholder="Stückzahl">
+                    <span>Stk.</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="passer">Passermarken / Rand</label>
+                <div class="inline-input">
+                    <input type="number" id="passer" min="0" step="0.1" value="0">
+                    <span>mm</span>
+                </div>
+                <span class="note">Rundum (oben/unten/links/rechts).</span>
+            </div>
+
+            <div class="input-group">
+                <label for="gripperValue">Greiferkante</label>
+                <div class="inline-input">
+                    <input type="number" id="gripperValue" min="0" step="0.1" value="0">
+                    <span>mm</span>
+                </div>
+                <div style="margin-top: 6px;">
+                    <select id="gripperSide">
+                        <option value="none">– keine –</option>
+                        <option value="oben">oben</option>
+                        <option value="unten">unten</option>
+                        <option value="links">links</option>
+                        <option value="rechts">rechts</option>
+                    </select>
+                </div>
+                <span class="note">Nur auf gewählter Seite.</span>
+            </div>
+
+            <h2 class="section-title" style="margin-top: 30px;">Eigenes Format</h2>
+            <div class="input-group">
+                <label for="customWidth">Bogenbreite</label>
+                <div class="inline-input">
+                    <input type="number" id="customWidth" min="1" step="1" placeholder="Breite">
+                    <span>mm</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="customHeight">Bogenhöhe</label>
+                <div class="inline-input">
+                    <input type="number" id="customHeight" min="1" step="1" placeholder="Höhe">
+                    <span>mm</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <button id="addFormatBtn" class="btn-primary">Format hinzufügen</button>
+            </div>
+        </div>
+
+        <!-- RECHTES PANEL (Ergebnisse) -->
+        <div class="main-content">
+            <h1>Nutzenberechnung</h1>
+            <p class="hint">
+                Gib links die Produktmaße ein. Die Tabelle zeigt die maximal möglichen Nutzen für verschiedene
+                Bogenformate. Klicke auf eine Zeile für die Vorschau.
+            </p>
+
+            <div id="error" class="error"></div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Druckbogen</th>
+                        <th>Ausrichtung</th>
+                        <th>Nutzen</th>
+                        <th>Anordnung</th>
+                        <th>Fläche</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                    <!-- Zeilen werden per JS gefüllt -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Preview Overlay -->
+    <div id="previewOverlay" class="preview-overlay">
+        <div class="preview-content">
+            <div class="preview-header">
+                <span id="previewTitle" class="preview-title"></span>
+                <button id="previewClose" class="preview-close-btn" type="button">&times;</button>
+            </div>
+            <div class="preview-svg-wrapper">
+                <svg id="previewSvg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
+            <p class="preview-note">
+                Darstellung schematisch, nicht maßstabsgerecht. Blau: Bogen, hell: nutzbare Fläche, dunkel: Nutzen.
+            </p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
