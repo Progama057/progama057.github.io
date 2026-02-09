@@ -6,7 +6,8 @@ const sheetFormats = [
     { name: "540 × 515 mm", width: 540, height: 515 },
     { name: "540 × 343 mm", width: 540, height: 343 },
     { name: "630 × 465 mm", width: 630, height: 465 },
-    { name: "630 × 310 mm", width: 630, height: 310 }
+    { name: "630 × 310 mm", width: 630, height: 310 },
+    { name: "610 x 420 mm", width: 610, height: 420 }
 ];
 
 const ORIENTATIONS = ["h", "v"]; // h = horizontal, v = vertikal
@@ -626,3 +627,4 @@ themeToggleBtn.addEventListener("click", () => {
         localStorage.setItem("theme", "dark");
     }
 });
+
