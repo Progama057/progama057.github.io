@@ -1,28 +1,25 @@
 <!DOCTYPE html>
 <html lang="de">
-
 <head>
     <meta charset="UTF-8">
-    <title>Nutzenberechnung – horizontal/vertikal mit Passermarken & Greiferkante</title>
+    <title>Nutzenberechnung – Print Production</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-    <div id="dimensionsDisplay"></div>
     <div class="app">
         <button id="themeToggle" class="theme-toggle-btn" title="Dark Mode umschalten">
             <span class="icon">🌙</span>
             <span>Dark Mode</span>
         </button>
-        <!-- LINKES PANEL (Eingaben) -->
+        
         <div class="sidebar">
-            <h2 class="section-title">Einstellungen</h2>
+            <h2 class="section-title">Produktdaten</h2>
 
             <div class="input-group">
                 <label for="productWidth">Produktbreite</label>
                 <div class="inline-input">
-                    <input type="number" id="productWidth" min="1" step="0.1" placeholder="z. B. 100">
+                    <input type="number" id="productWidth" min="1" step="0.1" placeholder="z. B. 100" autofocus>
                     <span>mm</span>
                 </div>
             </div>
@@ -36,50 +33,32 @@
             </div>
 
             <div class="input-group">
-                <label for="productionQuantity">Produktionsmenge (optional)</label>
+                <label for="productionQuantity">Produktionsmenge <span class="highlight-note">(Pflicht für Rolle)</span></label>
                 <div class="inline-input">
                     <input type="number" id="productionQuantity" min="0" step="1" placeholder="Stückzahl">
                     <span>Stk.</span>
                 </div>
             </div>
 
-            <div class="input-group">
-                <label for="passer">Passermarken / Rand</label>
-                <div class="inline-input">
-                    <input type="number" id="passer" min="0" step="0.1" value="0">
-                    <span>mm</span>
-                </div>
-                <span class="note">Rundum (oben/unten/links/rechts).</span>
-            </div>
-
-            <div class="input-group">
-                <label for="gripperValue">Greiferkante</label>
-                <div class="inline-input">
-                    <input type="number" id="gripperValue" min="0" step="0.1" value="0">
-                    <span>mm</span>
-                </div>
-                <div style="margin-top: 6px;">
-                    <select id="gripperSide">
-                        <option value="none">– keine –</option>
-                        <option value="oben">oben</option>
-                        <option value="unten">unten</option>
-                        <option value="links">links</option>
-                        <option value="rechts">rechts</option>
-                    </select>
-                </div>
-                <span class="note">Nur auf gewählter Seite.</span>
-            </div>
-
             <h2 class="section-title" style="margin-top: 30px;">Eigenes Format</h2>
             <div class="input-group">
-                <label for="customWidth">Bogenbreite</label>
+                <label>Für Maschine(n)</label>
+                <div class="checkbox-group" id="customTargetMachines">
+                    <label><input type="checkbox" value="SPS" checked> SPS</label>
+                    <label><input type="checkbox" value="Thime 3020"> Thime 3020</label>
+                    <label><input type="checkbox" value="Fuji Prime 30"> Fuji Prime 30</label>
+                    <label><input type="checkbox" value="Mimaki (Rolle)" class="roll-cb"> Mimaki (Rolle)</label>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="customWidth">Breite (Bogen / Rolle)</label>
                 <div class="inline-input">
                     <input type="number" id="customWidth" min="1" step="1" placeholder="Breite">
                     <span>mm</span>
                 </div>
             </div>
-            <div class="input-group">
-                <label for="customHeight">Bogenhöhe</label>
+            <div class="input-group" id="customHeightWrapper">
+                <label for="customHeight">Höhe (bei Bogen)</label>
                 <div class="inline-input">
                     <input type="number" id="customHeight" min="1" step="1" placeholder="Höhe">
                     <span>mm</span>
@@ -90,34 +69,19 @@
             </div>
         </div>
 
-        <!-- RECHTES PANEL (Ergebnisse) -->
         <div class="main-content">
-            <h1>Nutzenberechnung</h1>
+            <h1>Nutzenberechnung & Maschinenauswahl</h1>
             <p class="hint">
-                Gib links die Produktmaße ein. Die Tabelle zeigt die maximal möglichen Nutzen für verschiedene
-                Bogenformate. Klicke auf eine Zeile für die Vorschau.
+                Für jede Maschine wird die beste Anordnung markiert. Klicke auf die Maschinen-Namen, um die Tabellen ein- oder auszuklappen. Bei SPS und Thime werden automatisch 10 mm Greiferkante unten abgezogen.
             </p>
 
             <div id="error" class="error"></div>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>Druckbogen</th>
-                        <th>Ausrichtung</th>
-                        <th>Nutzen</th>
-                        <th>Anordnung</th>
-                        <th>Fläche</th>
-                    </tr>
-                </thead>
-                <tbody id="resultsBody">
-                    <!-- Zeilen werden per JS gefüllt -->
-                </tbody>
-            </table>
+            
+            <div id="resultsContainer">
+                </div>
         </div>
     </div>
 
-    <!-- Preview Overlay -->
     <div id="previewOverlay" class="preview-overlay">
         <div class="preview-content">
             <div class="preview-header">
@@ -127,13 +91,12 @@
             <div class="preview-svg-wrapper">
                 <svg id="previewSvg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet"></svg>
             </div>
-            <p class="preview-note">
-                Darstellung schematisch, nicht maßstabsgerecht. Blau: Bogen, hell: nutzbare Fläche, dunkel: Nutzen.
+            <p class="preview-note" id="previewNoteText">
+                Darstellung schematisch. <br>Weiß: Druckmedium | Grün gestrichelt: Nutzbare Fläche | Blau: Nutzen
             </p>
         </div>
     </div>
 
     <script src="script.js"></script>
 </body>
-
 </html>
