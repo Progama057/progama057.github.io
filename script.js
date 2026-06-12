@@ -1,102 +1,189 @@
-const sheetFormats = [
-    { name: "1030 × 540 mm", width: 1030, height: 540 },
-    { name: "930 × 630 mm", width: 930, height: 630 },
-    { name: "1000 × 700 mm", width: 1000, height: 700 },
-    { name: "700 × 500 mm", width: 700, height: 500 },
-    { name: "540 × 515 mm", width: 540, height: 515 },
-    { name: "540 × 343 mm", width: 540, height: 343 },
-    { name: "630 × 465 mm", width: 630, height: 465 },
-    { name: "630 × 310 mm", width: 630, height: 310 },
-    { name: "610 x 420 mm", width: 610, height: 420 }
+const defaultFormats = [
+    // --- Siebdruck ---
+    { id: 'sps-1', category: 'Siebdruck', machine: 'SPS', name: '1030 × 540 mm', width: 1030, height: 540 },
+    { id: 'sps-2', category: 'Siebdruck', machine: 'SPS', name: '930 × 630 mm', width: 930, height: 630 },
+    { id: 'sps-3', category: 'Siebdruck', machine: 'SPS', name: '1000 × 700 mm', width: 1000, height: 700 },
+
+    { id: 'thi-1', category: 'Siebdruck', machine: 'Thime 3020', name: '700 × 500 mm', width: 700, height: 500 },
+    { id: 'thi-2', category: 'Siebdruck', machine: 'Thime 3020', name: '540 × 515 mm', width: 540, height: 515 },
+    { id: 'thi-3', category: 'Siebdruck', machine: 'Thime 3020', name: '540 × 343 mm', width: 540, height: 343 },
+    { id: 'thi-4', category: 'Siebdruck', machine: 'Thime 3020', name: '630 × 465 mm', width: 630, height: 465 },
+    { id: 'thi-5', category: 'Siebdruck', machine: 'Thime 3020', name: '630 × 310 mm', width: 630, height: 310 },
+
+    // --- Digitaldruck ---
+    { id: 'fuji-1', category: 'Digitaldruck', machine: 'Fuji Prime 30', name: '1030 × 540 mm', width: 1030, height: 540 },
+    { id: 'fuji-2', category: 'Digitaldruck', machine: 'Fuji Prime 30', name: '930 × 630 mm', width: 930, height: 630 },
+    { id: 'fuji-3', category: 'Digitaldruck', machine: 'Fuji Prime 30', name: '1000 × 700 mm', width: 1000, height: 700 },
+
+    { id: 'mim-1', category: 'Digitaldruck', machine: 'Mimaki (Rolle)', name: '1270 mm Rolle', width: 1270, isRoll: true },
+    { id: 'mim-2', category: 'Digitaldruck', machine: 'Mimaki (Rolle)', name: '1370 mm Rolle', width: 1370, isRoll: true },
+    { id: 'mim-3', category: 'Digitaldruck', machine: 'Mimaki (Rolle)', name: '1570 mm Rolle', width: 1570, isRoll: true }
 ];
 
-const ORIENTATIONS = ["h", "v"]; // h = horizontal, v = vertikal
+let allFormats = [...defaultFormats];
+const ORIENTATIONS = ["h", "v"];
 
 function formatPercent(value) {
     if (!isFinite(value) || value < 0) return "–";
     return value.toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " %";
 }
 
-function createInitialRows() {
-    const tbody = document.getElementById("resultsBody");
-    tbody.innerHTML = "";
-    sheetFormats.forEach((fmt, index) => {
-        ORIENTATIONS.forEach((ori) => {
-            const tr = document.createElement("tr");
-            tr.dataset.formatIndex = String(index);
-            tr.dataset.formatIndex = String(index);
-            tr.dataset.orientation = ori;
+function loadCustomFormats() {
+    const stored = localStorage.getItem("customFormats");
+    if (stored) {
+        try {
+            const parsed = JSON.parse(stored);
+            allFormats = [...defaultFormats, ...parsed];
+        } catch (e) {
+            console.error("Fehler beim Laden der eigenen Formate", e);
+        }
+    }
+}
 
-            // Coloring based on format index
-            if (index % 2 !== 0) {
-                tr.classList.add("row-alt-bg");
-            }
+function saveCustomFormats() {
+    const customOnly = allFormats.filter(f => f.isCustom);
+    localStorage.setItem("customFormats", JSON.stringify(customOnly));
+}
 
-            const tdFormat = document.createElement("td");
-            tdFormat.className = "format-col";
-            tdFormat.setAttribute("data-label", "Druckbogen");
-            tdFormat.textContent = fmt.name;
-            tr.appendChild(tdFormat);
+function renderTables() {
+    const container = document.getElementById("resultsContainer");
+    container.innerHTML = "";
 
-            const tdOri = document.createElement("td");
-            tdOri.id = "ori-" + index + "-" + ori;
-            tdOri.setAttribute("data-label", "Ausrichtung");
-            tdOri.textContent = ori === "h" ? "horizontal (nicht gedreht)" : "vertikal (gedreht)";
-            tr.appendChild(tdOri);
-
-            const tdPieces = document.createElement("td");
-            tdPieces.id = "pieces-" + index + "-" + ori;
-            tdPieces.setAttribute("data-label", "Nutzen");
-            tdPieces.className = "muted";
-            tdPieces.textContent = "Bitte Produktmaße eingeben";
-            tr.appendChild(tdPieces);
-
-            const tdLayout = document.createElement("td");
-            tdLayout.id = "layout-" + index + "-" + ori;
-            tdLayout.className = "col-layout";
-            tdLayout.setAttribute("data-label", "Anordnung");
-            tdLayout.textContent = "–";
-            tr.appendChild(tdLayout);
-
-            const tdEfficiency = document.createElement("td");
-            tdEfficiency.id = "efficiency-" + index + "-" + ori;
-            tdEfficiency.className = "col-efficiency";
-            tdEfficiency.setAttribute("data-label", "Flächenausnutzung");
-            tdEfficiency.textContent = "–";
-            tr.appendChild(tdEfficiency);
-
-            tr.addEventListener("click", onRowClick);
-
-            tbody.appendChild(tr);
-        });
+    const grouped = {};
+    allFormats.forEach(fmt => {
+        if (!grouped[fmt.category]) grouped[fmt.category] = {};
+        if (!grouped[fmt.category][fmt.machine]) grouped[fmt.category][fmt.machine] = [];
+        grouped[fmt.category][fmt.machine].push(fmt);
     });
+
+    for (const [category, machines] of Object.entries(grouped)) {
+        const catHeader = document.createElement("h2");
+        catHeader.className = "category-header";
+        catHeader.textContent = category;
+        container.appendChild(catHeader);
+
+        for (const [machineName, formats] of Object.entries(machines)) {
+            const card = document.createElement("div");
+            card.className = "machine-card"; // Startet standardmäßig aufgeklappt
+
+            const mTitle = document.createElement("h3");
+            mTitle.className = "machine-title";
+            mTitle.textContent = machineName;
+            
+            // Klick-Event fürs Ein-/Ausklappen
+            mTitle.addEventListener("click", () => {
+                card.classList.toggle("collapsed");
+            });
+            
+            card.appendChild(mTitle);
+
+            const contentDiv = document.createElement("div");
+            contentDiv.className = "machine-content";
+
+            const table = document.createElement("table");
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Format</th>
+                        <th>Ausrichtung</th>
+                        <th>Nutzen / Laufmeter</th>
+                        <th class="col-layout">Anordnung</th>
+                        <th class="col-efficiency">Fläche</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+            const tbody = table.querySelector("tbody");
+
+            formats.forEach((fmt, index) => {
+                ORIENTATIONS.forEach(ori => {
+                    const tr = document.createElement("tr");
+                    tr.id = `row-${fmt.id}-${ori}`;
+                    if (index % 2 !== 0) tr.classList.add("row-alt-bg");
+                    
+                    tr.addEventListener("click", (e) => {
+                        if(e.target.classList.contains("btn-delete")) return;
+                        onRowClick(fmt, ori);
+                    });
+
+                    const tdFormat = document.createElement("td");
+                    tdFormat.className = "format-col";
+                    tdFormat.setAttribute("data-label", "Format");
+                    
+                    const nameSpan = document.createElement("span");
+                    nameSpan.textContent = fmt.name;
+                    tdFormat.appendChild(nameSpan);
+
+                    // Löschen-Button für Custom-Formate (nur beim h-Eintrag anzeigen)
+                    if (fmt.isCustom && ori === "h") {
+                        const delBtn = document.createElement("button");
+                        delBtn.className = "btn-delete";
+                        delBtn.textContent = "Löschen";
+                        delBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            allFormats = allFormats.filter(f => f.id !== fmt.id);
+                            saveCustomFormats();
+                            renderTables();
+                            recalc();
+                        };
+                        tdFormat.appendChild(delBtn);
+                    }
+                    tr.appendChild(tdFormat);
+
+                    const tdOri = document.createElement("td");
+                    tdOri.setAttribute("data-label", "Ausrichtung");
+                    tdOri.textContent = ori === "h" ? "horizontal (nicht gedreht)" : "vertikal (gedreht)";
+                    tr.appendChild(tdOri);
+
+                    const tdPieces = document.createElement("td");
+                    tdPieces.id = `pieces-${fmt.id}-${ori}`;
+                    tdPieces.setAttribute("data-label", "Nutzen / Laufmeter");
+                    tdPieces.className = "muted";
+                    tdPieces.textContent = "Bitte Produktmaße eingeben";
+                    tr.appendChild(tdPieces);
+
+                    const tdLayout = document.createElement("td");
+                    tdLayout.id = `layout-${fmt.id}-${ori}`;
+                    tdLayout.className = "col-layout";
+                    tdLayout.setAttribute("data-label", "Anordnung");
+                    tdLayout.textContent = "–";
+                    tr.appendChild(tdLayout);
+
+                    const tdEfficiency = document.createElement("td");
+                    tdEfficiency.id = `efficiency-${fmt.id}-${ori}`;
+                    tdEfficiency.className = "col-efficiency";
+                    tdEfficiency.setAttribute("data-label", "Fläche");
+                    tdEfficiency.textContent = "–";
+                    tr.appendChild(tdEfficiency);
+
+                    tbody.appendChild(tr);
+                });
+            });
+
+            contentDiv.appendChild(table);
+            card.appendChild(contentDiv);
+            container.appendChild(card);
+        }
+    }
 }
 
 function recalc() {
     const wInput = document.getElementById("productWidth");
     const hInput = document.getElementById("productHeight");
     const qInput = document.getElementById("productionQuantity");
-    const passerInput = document.getElementById("passer");
-    const gripperValueInput = document.getElementById("gripperValue");
-    const gripperSideSelect = document.getElementById("gripperSide");
     const errorEl = document.getElementById("error");
 
     const wValue = wInput.value.replace(",", ".");
     const hValue = hInput.value.replace(",", ".");
-    const qValueRaw = qInput.value.replace(",", "."); // Menge
-    const passerValueRaw = passerInput.value.replace(",", ".");
-    const gripperValueRaw = gripperValueInput.value.replace(",", ".");
+    const qValueRaw = qInput.value.replace(",", "."); 
 
     const productWidth = parseFloat(wValue);
     const productHeight = parseFloat(hValue);
-    const productionQuantity = parseInt(qValueRaw, 10); // Menge als Integer
-    let passer = parseFloat(passerValueRaw);
-    let gripperValue = parseFloat(gripperValueRaw);
-    const gripperSide = gripperSideSelect.value;
+    const productionQuantity = parseInt(qValueRaw, 10);
 
     if (!wValue && !hValue) {
         errorEl.textContent = "";
-        createInitialRows();
+        renderTables();
         return;
     }
 
@@ -105,227 +192,202 @@ function recalc() {
         return;
     }
 
-    if (isNaN(passer) || passer < 0) passer = 0;
-    if (isNaN(gripperValue) || gripperValue < 0) gripperValue = 0;
-
     errorEl.textContent = "";
 
-    let results = [];
+    // Gruppiere die Ergebnisse nach Maschine, um für jede den besten Wert zu finden
+    let machineResults = {};
 
-    // Helper for display text
-    function getPiecesText(pieces) {
-        let text = pieces.toString() + " Nutzen";
-        if (productionQuantity > 0 && pieces > 0) {
-            const requiredSheets = Math.ceil(productionQuantity / pieces);
-            text += ` (ca. ${requiredSheets} Bogen)`;
-        }
-        return text;
-    }
+    allFormats.forEach(fmt => {
+        let usableWidth = fmt.width;
+        let usableHeight = fmt.height; 
 
-    sheetFormats.forEach((fmt, index) => {
-        const sheetWidth = fmt.width;
-        const sheetHeight = fmt.height;
-
-        let usableWidth = sheetWidth;
-        let usableHeight = sheetHeight;
-
-        // Greiferkante
-        if (gripperValue > 0 && gripperSide !== "none") {
-            if (gripperSide === "links" || gripperSide === "rechts") {
-                usableWidth -= gripperValue;
-            } else {
-                usableHeight -= gripperValue;
-            }
+        // HARTE GREIFERKANTE: 10mm unten bei SPS und Thime
+        let hasGripper = (fmt.machine === 'SPS' || fmt.machine === 'Thime 3020');
+        if (hasGripper && !fmt.isRoll) {
+            usableHeight -= 10;
         }
 
-        // Passermarken (rundum)
-        usableWidth -= 2 * passer;
-        usableHeight -= 2 * passer;
+        ORIENTATIONS.forEach(ori => {
+            const tr = document.getElementById(`row-${fmt.id}-${ori}`);
+            const piecesCell = document.getElementById(`pieces-${fmt.id}-${ori}`);
+            const layoutCell = document.getElementById(`layout-${fmt.id}-${ori}`);
+            const effCell = document.getElementById(`efficiency-${fmt.id}-${ori}`);
+            
+            if(!tr) return;
 
-        // Reset rows visibility and highlight
-        ["h", "v"].forEach(ori => {
-            const row = document.getElementById("pieces-" + index + "-" + ori).parentElement;
-            row.style.display = "table-row";
-            row.classList.remove("recommendation");
-        });
+            tr.style.display = "table-row";
+            tr.classList.remove("recommendation");
 
-        if (usableWidth <= 0 || usableHeight <= 0) {
-            ORIENTATIONS.forEach((ori) => {
-                const piecesCell = document.getElementById("pieces-" + index + "-" + ori);
-                const layoutCell = document.getElementById("layout-" + index + "-" + ori);
-                const effCell = document.getElementById("efficiency-" + index + "-" + ori);
-
-                piecesCell.textContent = "Zu viel Rand, kein Platz";
+            if (usableWidth <= 0 || (!fmt.isRoll && usableHeight <= 0)) {
+                piecesCell.textContent = "Kein Platz (Greiferkante beachten)";
                 piecesCell.className = "muted";
                 layoutCell.textContent = "–";
                 effCell.textContent = "–";
-            });
-            return;
-        }
+                return;
+            }
 
-        const productArea = productWidth * productHeight;
-        const sheetArea = usableWidth * usableHeight;
-
-        // Calculate metrics for both orientations
-        function calcOrientation(ori, uW, uH) {
             const pW = ori === "h" ? productWidth : productHeight;
             const pH = ori === "h" ? productHeight : productWidth;
 
-            const countX = Math.floor(uW / pW);
-            const countY = Math.floor(uH / pH);
-            const pieces = Math.max(countX, 0) * Math.max(countY, 0);
-            const usedArea = pieces * productArea;
-            const efficiency = pieces > 0 ? (usedArea / sheetArea) * 100 : 0;
+            if (fmt.isRoll) {
+                if (isNaN(productionQuantity) || productionQuantity <= 0) {
+                    piecesCell.textContent = "Bitte Produktionsmenge (Stk.) eingeben";
+                    piecesCell.className = "muted";
+                    layoutCell.textContent = "–";
+                    effCell.textContent = "–";
+                    return;
+                }
 
-            return { pieces, efficiency, countX, countY };
-        }
+                const countX = Math.floor(usableWidth / pW);
+                if (countX <= 0) {
+                    piecesCell.textContent = "Produkt zu breit für diese Rolle";
+                    piecesCell.className = "muted";
+                    layoutCell.textContent = "–";
+                    effCell.textContent = "–";
+                    return;
+                }
 
-        const resH = calcOrientation("h", usableWidth, usableHeight);
-        const resV = calcOrientation("v", usableWidth, usableHeight);
+                const requiredRows = Math.ceil(productionQuantity / countX);
+                const lengthNeeded = (requiredRows * pH);
 
-        // Update DOM H
-        const piecesCellH = document.getElementById("pieces-" + index + "-h");
-        const layoutCellH = document.getElementById("layout-" + index + "-h");
-        const effCellH = document.getElementById("efficiency-" + index + "-h");
-        const rowH = piecesCellH.parentElement;
-
-        if (resH.pieces === 0) {
-            piecesCellH.textContent = "Passt nicht auf den Bogen";
-            piecesCellH.className = "muted";
-            layoutCellH.textContent = "–";
-            effCellH.textContent = "–";
-        } else {
-            piecesCellH.textContent = getPiecesText(resH.pieces);
-            piecesCellH.className = "";
-            layoutCellH.textContent = resH.countX + " nebeneinander × " + resH.countY + " Reihen";
-            effCellH.textContent = formatPercent(resH.efficiency);
-            results.push({ row: rowH, pieces: resH.pieces, efficiency: resH.efficiency });
-        }
-
-        // Update DOM V
-        const piecesCellV = document.getElementById("pieces-" + index + "-v");
-        const layoutCellV = document.getElementById("layout-" + index + "-v");
-        const effCellV = document.getElementById("efficiency-" + index + "-v");
-        const rowV = piecesCellV.parentElement;
-
-        if (resV.pieces === 0) {
-            piecesCellV.textContent = "Passt nicht auf den Bogen";
-            piecesCellV.className = "muted";
-            layoutCellV.textContent = "–";
-            effCellV.textContent = "–";
-        } else {
-            piecesCellV.textContent = getPiecesText(resV.pieces);
-            piecesCellV.className = "";
-            layoutCellV.textContent = resV.countX + " nebeneinander × " + resV.countY + " Reihen";
-            effCellV.textContent = formatPercent(resV.efficiency);
-
-            // Check duplicate: if V is identical to H, hide V
-            // Identical means same pieces AND same efficiency
-            if (resH.pieces > 0 && resV.pieces === resH.pieces && Math.abs(resV.efficiency - resH.efficiency) < 0.01) {
-                rowV.style.display = "none";
+                const runMeters = (lengthNeeded / 1000).toLocaleString("de-DE", { maximumFractionDigits: 2 });
+                
+                piecesCell.textContent = `${runMeters} Laufmeter`;
+                piecesCell.className = "";
+                layoutCell.textContent = `${countX} nebeneinander × ${requiredRows} Reihen`;
+                effCell.textContent = "–"; 
+                
             } else {
-                results.push({ row: rowV, pieces: resV.pieces, efficiency: resV.efficiency });
+                const productArea = productWidth * productHeight;
+                const sheetArea = usableWidth * usableHeight;
+
+                const countX = Math.floor(usableWidth / pW);
+                const countY = Math.floor(usableHeight / pH);
+                const pieces = Math.max(countX, 0) * Math.max(countY, 0);
+                
+                if (pieces === 0) {
+                    piecesCell.textContent = "Passt nicht auf den Bogen";
+                    piecesCell.className = "muted";
+                    layoutCell.textContent = "–";
+                    effCell.textContent = "–";
+                } else {
+                    const usedArea = pieces * productArea;
+                    const efficiency = (usedArea / sheetArea) * 100;
+
+                    let text = `${pieces} Nutzen`;
+                    if (productionQuantity > 0) {
+                        text += ` (ca. ${Math.ceil(productionQuantity / pieces)} Bogen)`;
+                    }
+
+                    piecesCell.textContent = text;
+                    piecesCell.className = "";
+                    layoutCell.textContent = `${countX} nebeneinander × ${countY} Reihen`;
+                    effCell.textContent = formatPercent(efficiency);
+
+                    if (!machineResults[fmt.machine]) machineResults[fmt.machine] = [];
+                    machineResults[fmt.machine].push({ tr, pieces, efficiency, ori, fmtId: fmt.id });
+                }
+            }
+        });
+
+        // Verstecke vertikale Reihe, wenn sie identisch zur horizontalen ist
+        if (!fmt.isRoll && machineResults[fmt.machine]) {
+            const mRes = machineResults[fmt.machine];
+            const hRes = mRes.find(r => r.fmtId === fmt.id && r.ori === "h");
+            const vRes = mRes.find(r => r.fmtId === fmt.id && r.ori === "v");
+            
+            if (hRes && vRes && hRes.pieces > 0 && hRes.pieces === vRes.pieces && Math.abs(hRes.efficiency - vRes.efficiency) < 0.01) {
+                document.getElementById(`row-${fmt.id}-v`).style.display = "none";
+                machineResults[fmt.machine] = mRes.filter(r => !(r.fmtId === fmt.id && r.ori === "v"));
             }
         }
     });
 
-    // Highlight best option
-    if (results.length > 0) {
-        // Sort by pieces desc, then efficiency desc
-        results.sort((a, b) => {
-            if (b.pieces !== a.pieces) return b.pieces - a.pieces;
-            return b.efficiency - a.efficiency;
-        });
+    // Besten Bogen pro Maschine markieren
+    for (const machineName in machineResults) {
+        const resList = machineResults[machineName];
+        if (resList.length > 0) {
+            resList.sort((a, b) => {
+                if (b.pieces !== a.pieces) return b.pieces - a.pieces;
+                return b.efficiency - a.efficiency;
+            });
 
-        const best = results[0];
-        if (best.pieces > 0) {
-            // Highlight all that match the best score and efficiency
-            results.forEach(res => {
+            const best = resList[0];
+            resList.forEach(res => {
                 if (res.pieces === best.pieces && Math.abs(res.efficiency - best.efficiency) < 0.01) {
-                    res.row.classList.add("recommendation");
+                    res.tr.classList.add("recommendation");
                 }
             });
         }
     }
 }
 
-function onRowClick(event) {
-    const tr = event.currentTarget;
-    const formatIndex = parseInt(tr.dataset.formatIndex, 10);
-    const orientation = tr.dataset.orientation;
-
+function onRowClick(fmt, orientation) {
     const wInput = document.getElementById("productWidth");
     const hInput = document.getElementById("productHeight");
-    const passerInput = document.getElementById("passer");
-    const gripperValueInput = document.getElementById("gripperValue");
-    const gripperSideSelect = document.getElementById("gripperSide");
+    const qInput = document.getElementById("productionQuantity");
     const errorEl = document.getElementById("error");
 
-    const wValue = wInput.value.replace(",", ".");
-    const hValue = hInput.value.replace(",", ".");
-    const passerValueRaw = passerInput.value.replace(",", ".");
-    const gripperValueRaw = gripperValueInput.value.replace(",", ".");
-
-    const productWidth = parseFloat(wValue);
-    const productHeight = parseFloat(hValue);
-    let passer = parseFloat(passerValueRaw);
-    let gripperValue = parseFloat(gripperValueRaw);
-    const gripperSide = gripperSideSelect.value;
+    const productWidth = parseFloat(wInput.value.replace(",", "."));
+    const productHeight = parseFloat(hInput.value.replace(",", "."));
+    const productionQuantity = parseInt(qInput.value.replace(",", "."), 10);
 
     if (isNaN(productWidth) || productWidth <= 0 || isNaN(productHeight) || productHeight <= 0) {
         errorEl.textContent = "Für die Vorschau zuerst gültige Produktmaße eingeben.";
         return;
     }
 
-    if (isNaN(passer) || passer < 0) passer = 0;
-    if (isNaN(gripperValue) || gripperValue < 0) gripperValue = 0;
+    let sheetWidth = fmt.width;
+    let sheetHeight = fmt.height;
+    
+    if (fmt.isRoll) {
+        if (isNaN(productionQuantity) || productionQuantity <= 0) {
+            errorEl.textContent = "Für die Rollenvorschau muss eine Stückmenge eingegeben werden.";
+            return;
+        }
+        const pW = orientation === "h" ? productWidth : productHeight;
+        const pH = orientation === "h" ? productHeight : productWidth;
+        
+        let uW = sheetWidth;
+        const countX = Math.floor(uW / pW);
+        if(countX <= 0) return; 
 
-    const fmt = sheetFormats[formatIndex];
-    const sheetWidth = fmt.width;
-    const sheetHeight = fmt.height;
+        const requiredRows = Math.ceil(productionQuantity / countX);
+        sheetHeight = (requiredRows * pH);
+    }
 
     let usableWidth = sheetWidth;
     let usableHeight = sheetHeight;
+    let hasGripper = (fmt.machine === 'SPS' || fmt.machine === 'Thime 3020');
 
-    if (gripperValue > 0 && gripperSide !== "none") {
-        if (gripperSide === "links" || gripperSide === "rechts") {
-            usableWidth -= gripperValue;
-        } else {
-            usableHeight -= gripperValue;
-        }
+    if (hasGripper && !fmt.isRoll) {
+        usableHeight -= 10;
     }
 
-    usableWidth -= 2 * passer;
-    usableHeight -= 2 * passer;
-
     if (usableWidth <= 0 || usableHeight <= 0) {
-        errorEl.textContent = "Mit den aktuellen Rand-Einstellungen bleibt keine nutzbare Fläche für dieses Format.";
+        errorEl.textContent = "Mit den aktuellen Einstellungen bleibt keine nutzbare Fläche.";
         return;
     }
 
-    const orientationLabel = orientation === "h" ? "horizontal (nicht gedreht)" : "vertikal (gedreht)";
-    const title = fmt.name + " – " + orientationLabel;
+    const orientationLabel = orientation === "h" ? "horizontal" : "vertikal";
+    const title = fmt.name + " – " + orientationLabel + (hasGripper ? " (inkl. 10mm Greifer unten)" : "");
+    
     showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usableHeight,
-        productWidth, productHeight, passer, gripperValue, gripperSide, title);
+        productWidth, productHeight, hasGripper, title);
 }
 
 function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usableHeight,
-    productWidth, productHeight, passer, gripperValue, gripperSide, title) {
+    productWidth, productHeight, hasGripper, title) {
     const overlay = document.getElementById("previewOverlay");
     const titleEl = document.getElementById("previewTitle");
     const svg = document.getElementById("previewSvg");
 
     titleEl.textContent = title;
 
-    // Remove existing details if any
     const existingDetails = document.getElementById("previewDetails");
-    if (existingDetails) {
-        existingDetails.remove();
-    }
+    if (existingDetails) existingDetails.remove();
 
-    while (svg.firstChild) {
-        svg.removeChild(svg.firstChild);
-    }
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
 
     const viewW = 400;
     const viewH = 300;
@@ -337,47 +399,29 @@ function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usa
     const sheetY = (viewH - sheetHpx) / 2;
 
     svg.setAttribute("viewBox", `0 0 ${viewW} ${viewH}`);
-    svg.setAttribute("width", "100%");
-    svg.setAttribute("height", "auto");
-
+    
+    // Hintergrundbogen (Papierweiß/Grau)
     const sheetRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     sheetRect.setAttribute("x", sheetX);
     sheetRect.setAttribute("y", sheetY);
     sheetRect.setAttribute("width", sheetWpx);
     sheetRect.setAttribute("height", sheetHpx);
-    sheetRect.setAttribute("fill", "#dbeafe");
-    sheetRect.setAttribute("stroke", "#1d4ed8");
-    sheetRect.setAttribute("stroke-width", "1.5");
+    sheetRect.setAttribute("fill", "#ffffff"); 
+    sheetRect.setAttribute("stroke", "#94a3b8");
+    sheetRect.setAttribute("stroke-width", "1");
     svg.appendChild(sheetRect);
 
-    if (gripperValue > 0 && gripperSide !== "none") {
-        const gripperPx = gripperValue * scaleBase;
+    // Fester Greifer unten (Rot)
+    if (hasGripper && !fmt.isRoll) {
+        const gripperPx = 10 * scaleBase;
         const gripperRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        if (gripperSide === "oben") {
-            gripperRect.setAttribute("x", sheetX);
-            gripperRect.setAttribute("y", sheetY);
-            gripperRect.setAttribute("width", sheetWpx);
-            gripperRect.setAttribute("height", gripperPx);
-        } else if (gripperSide === "unten") {
-            gripperRect.setAttribute("x", sheetX);
-            gripperRect.setAttribute("y", sheetY + sheetHpx - gripperPx);
-            gripperRect.setAttribute("width", sheetWpx);
-            gripperRect.setAttribute("height", gripperPx);
-        } else if (gripperSide === "links") {
-            gripperRect.setAttribute("x", sheetX);
-            gripperRect.setAttribute("y", sheetY);
-            gripperRect.setAttribute("width", gripperPx);
-            gripperRect.setAttribute("height", sheetHpx);
-        } else if (gripperSide === "rechts") {
-            gripperRect.setAttribute("x", sheetX + sheetWpx - gripperPx);
-            gripperRect.setAttribute("y", sheetY);
-            gripperRect.setAttribute("width", gripperPx);
-            gripperRect.setAttribute("height", sheetHpx);
-        }
-        gripperRect.setAttribute("fill", "#fecaca");
-        gripperRect.setAttribute("stroke", "#b91c1c");
-        gripperRect.setAttribute("stroke-width", "1");
-        gripperRect.setAttribute("fill-opacity", "0.7");
+        gripperRect.setAttribute("x", sheetX); 
+        gripperRect.setAttribute("y", sheetY + sheetHpx - gripperPx);
+        gripperRect.setAttribute("width", sheetWpx); 
+        gripperRect.setAttribute("height", gripperPx);
+        gripperRect.setAttribute("fill", "#fca5a5"); // Rötlich
+        gripperRect.setAttribute("stroke", "#ef4444");
+        gripperRect.setAttribute("fill-opacity", "0.8");
         svg.appendChild(gripperRect);
     }
 
@@ -386,37 +430,19 @@ function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usa
     let usableWpx = sheetWpx;
     let usableHpx = sheetHpx;
 
-    if (gripperValue > 0 && gripperSide !== "none") {
-        const gripperPx = gripperValue * scaleBase;
-        if (gripperSide === "oben") {
-            usableY += gripperPx;
-            usableHpx -= gripperPx;
-        } else if (gripperSide === "unten") {
-            usableHpx -= gripperPx;
-        } else if (gripperSide === "links") {
-            usableX += gripperPx;
-            usableWpx -= gripperPx;
-        } else if (gripperSide === "rechts") {
-            usableWpx -= gripperPx;
-        }
+    if (hasGripper && !fmt.isRoll) {
+        usableHpx -= (10 * scaleBase);
     }
 
-    const passerPx = passer * scaleBase;
-    usableX += passerPx;
-    usableY += passerPx;
-    usableWpx -= 2 * passerPx;
-    usableHpx -= 2 * passerPx;
-
+    // Nutzbare Fläche (Grün gestrichelt zur klaren Trennung)
     if (usableWpx > 0 && usableHpx > 0) {
         const usableRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        usableRect.setAttribute("x", usableX);
-        usableRect.setAttribute("y", usableY);
-        usableRect.setAttribute("width", usableWpx);
-        usableRect.setAttribute("height", usableHpx);
-        usableRect.setAttribute("fill", "#e5e7eb");
-        usableRect.setAttribute("stroke", "#6b7280");
-        usableRect.setAttribute("stroke-dasharray", "4 3");
-        usableRect.setAttribute("stroke-width", "1");
+        usableRect.setAttribute("x", usableX); usableRect.setAttribute("y", usableY);
+        usableRect.setAttribute("width", usableWpx); usableRect.setAttribute("height", usableHpx);
+        usableRect.setAttribute("fill", "transparent");
+        usableRect.setAttribute("stroke", "#22c55e");
+        usableRect.setAttribute("stroke-dasharray", "4 4");
+        usableRect.setAttribute("stroke-width", "1.5");
         svg.appendChild(usableRect);
     }
 
@@ -425,206 +451,181 @@ function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usa
     const prodWpx = prodWmm * scaleBase;
     const prodHpx = prodHmm * scaleBase;
 
-    const countX = Math.floor(usableWpx / prodWpx);
-    const countY = Math.floor(usableHpx / prodHpx);
+    let countX = Math.floor(usableWpx / prodWpx);
+    let countY = Math.floor(usableHpx / prodHpx);
+    
+    const qInput = parseInt(document.getElementById("productionQuantity").value, 10);
+    let totalDrawn = 0;
 
-    for (let ix = 0; ix < countX; ix++) {
-        for (let iy = 0; iy < countY; iy++) {
+    for (let iy = 0; iy < countY; iy++) {
+        for (let ix = 0; ix < countX; ix++) {
+            if (fmt.isRoll && totalDrawn >= qInput) break;
+
             const x = usableX + ix * prodWpx;
             const y = usableY + iy * prodHpx;
             const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-            r.setAttribute("x", x + 0.5);
-            r.setAttribute("y", y + 0.5);
-            r.setAttribute("width", prodWpx - 1);
-            r.setAttribute("height", prodHpx - 1);
-            r.setAttribute("fill", "#1d4ed8");
-            r.setAttribute("fill-opacity", "0.6");
-            r.setAttribute("stroke", "#1e3a8a");
-            r.setAttribute("stroke-width", "0.5");
+            r.setAttribute("x", x + 0.5); r.setAttribute("y", y + 0.5);
+            r.setAttribute("width", prodWpx - 1); r.setAttribute("height", prodHpx - 1);
+            r.setAttribute("fill", "#3b82f6"); // Starkes Blau
+            r.setAttribute("fill-opacity", "0.85");
+            r.setAttribute("stroke", "#ffffff"); // Weißer Rand für perfekte Trennung
+            r.setAttribute("stroke-width", "1");
             svg.appendChild(r);
+            totalDrawn++;
         }
     }
 
-    // Calculate details for Mobile View (or general view)
     const pieces = Math.max(countX, 0) * Math.max(countY, 0);
     const prodArea = productWidth * productHeight;
-    const sheetArea = usableWidth * usableHeight; // This uses usable dimensions. Usually efficiency is based on SHEET dimensions, let's consistency check.
-    // In recalc: const sheetArea = usableWidth * usableHeight; -> Wait, recalc uses usableWidth * usableHeight for efficiency?
-    // Let's check recalc... 
-    // const sheetArea = usableWidth * usableHeight; 
-    // Yes, code below line 158 in recalc: const sheetArea = usableWidth * usableHeight;
-    // So efficiency is based on USABLE area.
+    const sheetArea = usableWidth * usableHeight;
+    const efficiency = pieces > 0 ? ((totalDrawn > 0 ? totalDrawn : pieces) * prodArea / sheetArea) * 100 : 0;
 
-    // Wait, typically efficiency is based on TOTAL sheet area.
-    // Let's check recalc again. Line 158: const sheetArea = usableWidth * usableHeight;
-    // Line 169: const efficiency = pieces > 0 ? (usedArea / sheetArea) * 100 : 0;
-    // So current logic is based on USABLE area. I will stick to that to be consistent, although it might be "wrong" in print industry (usually total sheet). 
-    // But I am just refactoring/optimizing, not changing business logic unless asked.
+    const layoutText = `${countX} nebeneinander × ${fmt.isRoll ? Math.ceil(qInput/countX) : countY} Reihen`;
+    let detailsHTML = `<div style="color: var(--text-muted);">${layoutText}</div>`;
+    
+    if(!fmt.isRoll) {
+        detailsHTML += `<div style="margin-top: 4px;">Flächenausnutzung (nutzbarer Bereich): <strong>${formatPercent(efficiency)}</strong></div>`;
+    } else {
+        const lengthM = (sheetHeight / 1000).toLocaleString("de-DE", { maximumFractionDigits: 2 });
+        detailsHTML += `<div style="margin-top: 4px;">Berechnete Laufmeter: <strong>${lengthM} m</strong></div>`;
+    }
 
-    // Actually, looking at recalc line 158:
-    // const sheetArea = usableWidth * usableHeight;
-    // This seems to be the logic used.
-
-    const usedArea = pieces * prodArea;
-    const efficiency = pieces > 0 ? (usedArea / sheetArea) * 100 : 0;
-
-    const layoutText = `${countX} nebeneinander × ${countY} Reihen`;
-    const effText = formatPercent(efficiency);
-    const piecesText = `${pieces} Nutzen`;
-
-    // Create details element
     const detailsDiv = document.createElement("div");
     detailsDiv.id = "previewDetails";
     detailsDiv.style.marginTop = "15px";
     detailsDiv.style.textAlign = "center";
     detailsDiv.style.fontSize = "0.9rem";
     detailsDiv.style.color = "var(--text-main)";
-    detailsDiv.innerHTML = `
-        <div style="font-weight: 600; margin-bottom: 4px;">${piecesText}</div>
-        <div style="color: var(--text-muted);">${layoutText}</div>
-        <div style="margin-top: 4px;">Flächenausnutzung: <strong>${effText}</strong></div>
-    `;
+    detailsDiv.innerHTML = detailsHTML;
 
-    // Insert after SVG wrapper
-    const svgWrapper = svg.parentElement; // svg is inside .preview-svg-wrapper? No, svg is inside .preview-content directly?
-    // Let's check HTML. 
-    // <div class="preview-svg-wrapper"><svg id="previewSvg" ...></svg></div>
-    // So svg.parentElement is wrapper.
-    // We want to append to .preview-content, which is wrapper.parentElement.
-
-    // Wait, I don't see the HTML structure in the file view for showPreview.
-    // Let's look at `view_file` output around line 305.
-    // const overlay = document.getElementById("previewOverlay");
-    // const titleEl = document.getElementById("previewTitle");
-    // const svg = document.getElementById("previewSvg");
-    // It doesn't show the parent structure.
-
-    // However, I can append to the container of the svg.
     svg.parentElement.insertAdjacentElement('afterend', detailsDiv);
-
     overlay.style.display = "flex";
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Load custom formats from LocalStorage
-    const storedFormats = localStorage.getItem("customFormats");
-    if (storedFormats) {
-        try {
-            const parsedFormats = JSON.parse(storedFormats);
-            parsedFormats.forEach(fmt => sheetFormats.push(fmt));
-        } catch (e) {
-            console.error("Fehler beim Laden der eigenen Formate", e);
+    loadCustomFormats();
+    renderTables();
+
+    ["productWidth", "productHeight", "productionQuantity"].forEach(id => {
+        document.getElementById(id).addEventListener("input", recalc);
+    });
+
+    // Toggle für Höhe bei eigenen Formaten
+    const customTargetMachines = document.getElementById("customTargetMachines");
+    const customHeightWrapper = document.getElementById("customHeightWrapper");
+    
+    customTargetMachines.addEventListener("change", () => {
+        const checked = document.querySelectorAll('#customTargetMachines input:checked');
+        let onlyRolls = true;
+        
+        if (checked.length === 0) onlyRolls = false; // Verhindert Fehler, wenn alles abgewählt ist
+
+        checked.forEach(cb => {
+            if (!cb.classList.contains("roll-cb")) onlyRolls = false;
+        });
+
+        if (onlyRolls) {
+            customHeightWrapper.style.display = "none";
+        } else {
+            customHeightWrapper.style.display = "block";
         }
-    }
+    });
 
-    createInitialRows();
-    document.getElementById("productWidth").addEventListener("input", recalc);
-    document.getElementById("productHeight").addEventListener("input", recalc);
-    document.getElementById("productionQuantity").addEventListener("input", recalc);
-    document.getElementById("passer").addEventListener("input", recalc);
-    document.getElementById("gripperValue").addEventListener("input", recalc);
-    document.getElementById("gripperSide").addEventListener("change", recalc);
-
+    // Eigenes Format hinzufügen (für alle gewählten Maschinen)
     document.getElementById("addFormatBtn").addEventListener("click", () => {
+        const checkboxes = document.querySelectorAll('#customTargetMachines input:checked');
+        const errorEl = document.getElementById("error");
+        
+        if (checkboxes.length === 0) {
+            errorEl.textContent = "Bitte mindestens eine Zielmaschine auswählen.";
+            return;
+        }
+
         const wInput = document.getElementById("customWidth");
         const hInput = document.getElementById("customHeight");
         const wValRaw = parseFloat(wInput.value.replace(",", "."));
         const hValRaw = parseFloat(hInput.value.replace(",", "."));
-        const errorEl = document.getElementById("error");
 
-        if (isNaN(wValRaw) || wValRaw <= 0 || isNaN(hValRaw) || hValRaw <= 0) {
-            errorEl.textContent = "Bitte gültige Breite und Höhe für das eigene Format eingeben.";
+        let hasError = false;
+        const newFormats = [];
+        const timestamp = Date.now();
+
+        checkboxes.forEach((cb, i) => {
+            const targetMachine = cb.value;
+            const isRoll = cb.classList.contains("roll-cb");
+
+            if (isNaN(wValRaw) || wValRaw <= 0 || (!isRoll && (isNaN(hValRaw) || hValRaw <= 0))) {
+                hasError = true;
+                return;
+            }
+
+            let category = "Siebdruck";
+            if (targetMachine.includes("Fuji") || targetMachine.includes("Mimaki")) {
+                category = "Digitaldruck";
+            }
+
+            const newFormat = {
+                id: `custom-${timestamp}-${i}`,
+                category: category,
+                machine: targetMachine,
+                isCustom: true,
+                isRoll: isRoll
+            };
+
+            if (isRoll) {
+                newFormat.name = `${wValRaw} mm Rolle (Eigenes)`;
+                newFormat.width = wValRaw;
+            } else {
+                const wVal = Math.max(wValRaw, hValRaw);
+                const hVal = Math.min(wValRaw, hValRaw);
+                newFormat.name = `${wVal} × ${hVal} mm (Eigenes)`;
+                newFormat.width = wVal;
+                newFormat.height = hVal;
+            }
+            newFormats.push(newFormat);
+        });
+
+        if (hasError) {
+            errorEl.textContent = "Bitte gültige Maße für das eigene Format eingeben.";
             return;
         }
 
-        // Clear separate error if any
-        if (errorEl.textContent.includes("Bitte gültige Breite")) {
-            errorEl.textContent = "";
-        }
-
-        const wVal = Math.max(wValRaw, hValRaw);
-        const hVal = Math.min(wValRaw, hValRaw);
-
-        const newFormat = {
-            name: Math.round(wVal) + " × " + Math.round(hVal) + " mm (Eigenes)",
-            width: wVal,
-            height: hVal
-        };
-
-        sheetFormats.push(newFormat);
-
-        // Save to LocalStorage
-        try {
-            const currentCustoms = localStorage.getItem("customFormats");
-            let customsArr = currentCustoms ? JSON.parse(currentCustoms) : [];
-            customsArr.push(newFormat);
-            localStorage.setItem("customFormats", JSON.stringify(customsArr));
-        } catch (e) {
-            console.error("Fehler beim Speichern des Formats", e);
-        }
-
+        errorEl.textContent = "";
+        allFormats = [...allFormats, ...newFormats];
+        saveCustomFormats();
+        
         wInput.value = "";
         hInput.value = "";
 
-        createInitialRows();
+        renderTables();
         recalc();
     });
 
     const overlay = document.getElementById("previewOverlay");
-    const closeBtn = document.getElementById("previewClose");
+    document.getElementById("previewClose").addEventListener("click", () => overlay.style.display = "none");
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.style.display = "none"; });
 
-    closeBtn.addEventListener("click", () => {
-        overlay.style.display = "none";
-    });
+    const themeToggleBtn = document.getElementById("themeToggle");
+    const iconSpan = themeToggleBtn.querySelector(".icon");
+    const textSpan = themeToggleBtn.querySelector("span:last-child");
 
-    overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) {
-            overlay.style.display = "none";
+    function updateTheme(isDark) {
+        if (isDark) {
+            document.body.classList.add("dark-mode");
+            iconSpan.textContent = "☀️";
+            textSpan.textContent = "Light Mode";
+        } else {
+            document.body.classList.remove("dark-mode");
+            iconSpan.textContent = "🌙";
+            textSpan.textContent = "Dark Mode";
         }
+    }
+
+    if (localStorage.getItem("theme") === "dark") updateTheme(true);
+
+    themeToggleBtn.addEventListener("click", () => {
+        const isDark = document.body.classList.contains("dark-mode");
+        updateTheme(!isDark);
+        localStorage.setItem("theme", !isDark ? "dark" : "light");
     });
-
-    // Browser Dimensions Display
-    const dimsDisplay = document.getElementById("dimensionsDisplay");
-    function updateDimensions() {
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        dimsDisplay.textContent = w + " × " + h;
-    }
-    window.addEventListener("resize", updateDimensions);
-    updateDimensions(); // Initial call
 });
-
-// Dark Mode Logic
-const themeToggleBtn = document.getElementById("themeToggle");
-const iconSpan = themeToggleBtn.querySelector(".icon");
-const textSpan = themeToggleBtn.querySelector("span:last-child");
-
-function updateTheme(isDark) {
-    if (isDark) {
-        document.body.classList.add("dark-mode");
-        iconSpan.textContent = "☀️";
-        textSpan.textContent = "Light Mode";
-    } else {
-        document.body.classList.remove("dark-mode");
-        iconSpan.textContent = "🌙";
-        textSpan.textContent = "Dark Mode";
-    }
-}
-
-// Check local storage
-const savedTheme = localStorage.getItem("theme");
-if (savedTheme === "dark") {
-    updateTheme(true);
-}
-
-themeToggleBtn.addEventListener("click", () => {
-    const isDark = document.body.classList.contains("dark-mode");
-    if (isDark) {
-        updateTheme(false);
-        localStorage.setItem("theme", "light");
-    } else {
-        updateTheme(true);
-        localStorage.setItem("theme", "dark");
-    }
-});
-
