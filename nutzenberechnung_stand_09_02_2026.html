@@ -8,18 +8,81 @@
 </head>
 <body>
     <div class="app">
-        <button id="themeToggle" class="theme-toggle-btn" title="Dark Mode umschalten">
-            <span class="icon">🌙</span>
-            <span>Dark Mode</span>
-        </button>
+        <button id="generalSettingsBtn" class="general-settings-btn" type="button" aria-expanded="false">⚙ Einstellungen</button>
+        <div id="adminBadge" class="admin-badge" hidden>
+            <span>Admin angemeldet</span>
+            <button id="adminLogoutBtn" type="button">Logout</button>
+        </div>
 
         <nav class="tab-navigation" role="tablist" aria-label="Berechnungen">
-            <button class="tab-button active" id="tab-utilization" type="button" role="tab" aria-selected="true" aria-controls="panel-utilization" data-tab="panel-utilization">Nutzenberechnung</button>
-            <button class="tab-button" id="tab-material" type="button" role="tab" aria-selected="false" aria-controls="panel-material" data-tab="panel-material">Material / Produktberechnung / Kalkulation</button>
-            <button class="tab-button" id="tab-ink" type="button" role="tab" aria-selected="false" aria-controls="panel-ink" data-tab="panel-ink">Farbverbrauch</button>
+            <button class="tab-button active" id="tab-dashboard" type="button" role="tab" aria-selected="true" aria-controls="panel-dashboard" data-tab="panel-dashboard">Startseite</button>
+            <button class="tab-button" id="tab-utilization" type="button" role="tab" aria-selected="false" aria-controls="panel-utilization" data-tab="panel-utilization">Nutzenberechnung</button>
+            <button class="tab-button" id="tab-material" type="button" role="tab" aria-selected="false" aria-controls="panel-material" data-tab="panel-material" hidden>Kalkulation (Beta)</button>
+            <button class="tab-button" id="tab-ink" type="button" role="tab" aria-selected="false" aria-controls="panel-ink" data-tab="panel-ink">Farbverbrauch (Beta)</button>
         </nav>
+
+        <section id="generalSettings" class="general-settings-panel" hidden>
+            <h2 class="section-title">Allgemeine Einstellungen</h2>
+            <div class="general-settings-actions">
+                <button id="lightModeBtn" class="btn-secondary" type="button">Lightmode aktivieren</button>
+                <button id="resetSettingsBtn" class="btn-danger" type="button" hidden>Alle Settings resetten</button>
+            </div>
+            <div class="admin-login">
+                <h3>Adminlogin</h3>
+                <div class="admin-login-form">
+                    <input id="adminUser" type="text" autocomplete="username" placeholder="Benutzername">
+                    <input id="adminPassword" type="password" autocomplete="current-password" placeholder="Passwort">
+                    <button id="adminLoginBtn" class="btn-primary" type="button">Anmelden</button>
+                </div>
+                <p id="adminStatus" class="settings-status" aria-live="polite"></p>
+            </div>
+            <div id="adminSettingsSections" class="admin-settings-sections" hidden>
+                <h3 class="admin-settings-title">Maschinenparameter</h3>
+                <div class="machine-settings-grid">
+                    <div class="machine-setting-group"><h4>SPS</h4><label for="machineGripperSPS">Greiferkante</label><div class="inline-input"><input type="number" id="machineGripperSPS" min="0" step="0.1" value="10"><span>mm</span></div><label for="machineSpeedSPS">Druckgeschwindigkeit</label><div class="inline-input"><input type="number" id="machineSpeedSPS" min="0" step="1" placeholder="Bogen/h"><span>Bogen/h</span></div></div>
+                    <div class="machine-setting-group"><h4>Thime 3020</h4><label for="machineGripperThime">Greiferkante</label><div class="inline-input"><input type="number" id="machineGripperThime" min="0" step="0.1" value="10"><span>mm</span></div><label for="machineSpeedThime">Druckgeschwindigkeit</label><div class="inline-input"><input type="number" id="machineSpeedThime" min="0" step="1" placeholder="Bogen/h"><span>Bogen/h</span></div></div>
+                    <div class="machine-setting-group"><h4>Fuji Prime 30</h4><label for="machineGripperFuji">Greiferkante</label><div class="inline-input"><input type="number" id="machineGripperFuji" min="0" step="0.1" value="0"><span>mm</span></div><label for="machineSpeedFuji">Druckgeschwindigkeit</label><div class="inline-input"><input type="number" id="machineSpeedFuji" min="0" step="1" placeholder="Bogen/h"><span>Bogen/h</span></div></div>
+                    <div class="machine-setting-group"><h4>Mimaki (Rolle)</h4><label for="machineGripperMimaki">Greiferkante</label><div class="inline-input"><input type="number" id="machineGripperMimaki" min="0" step="0.1" value="0"><span>mm</span></div><label for="machineSpeedMimaki">Druckgeschwindigkeit</label><div class="inline-input"><input type="number" id="machineSpeedMimaki" min="0" step="1" placeholder="Bogen/h"><span>Bogen/h</span></div></div>
+                    <div class="input-group"><label for="machineGap">Abstand zwischen Nutzen</label><div class="inline-input"><input type="number" id="machineGap" min="0" step="0.1" value="0"><span>mm</span></div></div>
+                </div>
+                <div class="machine-rules-grid">
+                    <div class="input-group"><label for="spsMinSheets">SPS ab Bogen</label><div class="inline-input"><input type="number" id="spsMinSheets" min="0" step="1" value="300"><span>Bogen</span></div></div>
+                    <div class="input-group"><label for="thimeMaxSheets">Thime bis Bogen</label><div class="inline-input"><input type="number" id="thimeMaxSheets" min="0" step="1" value="400"><span>Bogen</span></div></div>
+                    <div class="input-group"><label for="primeMaxSheets">Prime bis Bogen</label><div class="inline-input"><input type="number" id="primeMaxSheets" min="0" step="1" value="50"><span>Bogen</span></div></div>
+                </div>
+                <h3 class="admin-settings-title">Farbverbrauch</h3>
+                <div id="inkSettingsHost"></div>
+                <h3 class="admin-settings-title">Material / Produktberechnung / Kalkulation</h3>
+                <div id="materialSettingsHost"></div>
+            </div>
+        </section>
+
+        <section class="tab-panel dashboard-panel active" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
+            <div class="dashboard-header">
+                <h1>Siebdruck Übersicht</h1>
+                <p class="hint">Produktmaß und Auflage eingeben, um sofort die passende Maschine zu sehen.</p>
+            </div>
+            <div class="dashboard-grid">
+                <section class="dashboard-widget dashboard-machine-widget">
+                    <div class="widget-heading"><h2>Nutzen &amp; Maschinenvorschlag</h2><span>01</span></div>
+                    <div class="dashboard-inputs">
+                        <div class="input-group"><label for="dashboardWidth">Breite</label><div class="inline-input"><input type="number" id="dashboardWidth" min="0" step="0.1" placeholder="300"><span>mm</span></div></div>
+                        <div class="input-group"><label for="dashboardHeight">Höhe</label><div class="inline-input"><input type="number" id="dashboardHeight" min="0" step="0.1" placeholder="300"><span>mm</span></div></div>
+                        <div class="input-group"><label for="dashboardQuantity">Auflage</label><div class="inline-input"><input type="number" id="dashboardQuantity" min="0" step="1" placeholder="1000"><span>Stk.</span></div></div>
+                    </div>
+                    <div id="dashboardComparison" class="dashboard-comparison">Maße und Auflage eingeben.</div>
+                    <button class="widget-link" type="button" data-open-tab="panel-utilization">Details öffnen →</button>
+                </section>
+                <section class="dashboard-widget dashboard-ink-widget">
+                    <div class="widget-heading"><h2>Farbverbrauch</h2><span>02</span></div>
+                    <p>Verbrauch pro Sieb und Auftrag direkt in kg und g berechnen.</p>
+                    <div id="dashboardInkResult" class="dashboard-ink-result">Format und Auflage eingeben, um den Farbverbrauch zu sehen.</div>
+                    <button class="widget-link" type="button" data-open-tab="panel-ink">Farbverbrauch öffnen →</button>
+                </section>
+            </div>
+        </section>
         
-        <div class="tab-panel active" id="panel-utilization" role="tabpanel" aria-labelledby="tab-utilization">
+        <div class="tab-panel" id="panel-utilization" role="tabpanel" aria-labelledby="tab-utilization" hidden>
             <div class="sidebar">
             <h2 class="section-title">Produktdaten</h2>
 
@@ -47,33 +110,37 @@
                 </div>
             </div>
 
-            <h2 class="section-title" style="margin-top: 30px;">Eigenes Format</h2>
-            <div class="input-group">
-                <label>Für Maschine(n)</label>
-                <div class="checkbox-group" id="customTargetMachines">
-                    <label><input type="checkbox" value="SPS" checked> SPS</label>
-                    <label><input type="checkbox" value="Thime 3020"> Thime 3020</label>
-                    <label><input type="checkbox" value="Fuji Prime 30"> Fuji Prime 30</label>
-                    <label><input type="checkbox" value="Mimaki (Rolle)" class="roll-cb"> Mimaki (Rolle)</label>
+            <details class="custom-format-details">
+                <summary>Eigenes Format</summary>
+                <div class="custom-format-content">
+                    <div class="input-group">
+                        <label>Für Maschine(n)</label>
+                        <div class="checkbox-group" id="customTargetMachines">
+                            <label><input type="checkbox" value="SPS" checked> SPS</label>
+                            <label><input type="checkbox" value="Thime 3020"> Thime 3020</label>
+                            <label><input type="checkbox" value="Fuji Prime 30"> Fuji Prime 30</label>
+                            <label><input type="checkbox" value="Mimaki (Rolle)" class="roll-cb"> Mimaki (Rolle)</label>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="customWidth">Breite (Bogen / Rolle)</label>
+                        <div class="inline-input">
+                            <input type="number" id="customWidth" min="1" step="1" placeholder="Breite">
+                            <span>mm</span>
+                        </div>
+                    </div>
+                    <div class="input-group" id="customHeightWrapper">
+                        <label for="customHeight">Höhe (bei Bogen)</label>
+                        <div class="inline-input">
+                            <input type="number" id="customHeight" min="1" step="1" placeholder="Höhe">
+                            <span>mm</span>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <button id="addFormatBtn" class="btn-primary">Format hinzufügen</button>
+                    </div>
                 </div>
-            </div>
-            <div class="input-group">
-                <label for="customWidth">Breite (Bogen / Rolle)</label>
-                <div class="inline-input">
-                    <input type="number" id="customWidth" min="1" step="1" placeholder="Breite">
-                    <span>mm</span>
-                </div>
-            </div>
-            <div class="input-group" id="customHeightWrapper">
-                <label for="customHeight">Höhe (bei Bogen)</label>
-                <div class="inline-input">
-                    <input type="number" id="customHeight" min="1" step="1" placeholder="Höhe">
-                    <span>mm</span>
-                </div>
-            </div>
-            <div class="input-group">
-                <button id="addFormatBtn" class="btn-primary">Format hinzufügen</button>
-            </div>
+            </details>
             </div>
 
             <div class="main-content">
@@ -83,6 +150,11 @@
                 </p>
 
                 <div id="error" class="error"></div>
+
+                <section class="machine-comparison-panel">
+                    <h2 class="section-title">Maschinenvergleich</h2>
+                    <div id="machineComparison" class="machine-comparison">Produktmaße eingeben, um Maschinen zu vergleichen.</div>
+                </section>
                 
                 <div id="resultsContainer">
                 </div>
@@ -95,7 +167,6 @@
                     <h1>Material / Produktberechnung / Kalkulation</h1>
                     <p class="hint">Hinterlege die Grunddaten und berechne Materialbedarf und Auftragspreis.</p>
                 </div>
-                <button id="materialSettingsBtn" class="btn-secondary" type="button" aria-expanded="false">⚙ Grunddaten</button>
             </div>
 
             <section id="materialSettings" class="settings-panel" hidden>
@@ -133,8 +204,15 @@
                         <label for="productionHours">Arbeitszeit</label>
                         <div class="inline-input"><input type="number" id="productionHours" min="0" step="0.1" placeholder="z. B. 1,5"><span>h</span></div>
                     </div>
+                    <div class="input-group"><label for="prepressCost">Vorstufe / Belichtung</label><div class="inline-input"><input type="number" id="prepressCost" min="0" step="0.01" placeholder="0"><span>€</span></div></div>
+                    <div class="input-group"><label for="packagingCost">Verpackung / Versand</label><div class="inline-input"><input type="number" id="packagingCost" min="0" step="0.01" placeholder="0"><span>€</span></div></div>
                 </div>
                 <button id="saveMaterialSettingsBtn" class="btn-primary material-save-btn" type="button">Grunddaten speichern</button>
+                <div class="profile-row">
+                    <input id="materialProfileName" type="text" placeholder="Materialprofil speichern, z. B. Bilderdruckpapier">
+                    <button id="saveMaterialProfileBtn" class="btn-secondary" type="button">Materialprofil speichern</button>
+                </div>
+                <div id="materialProfileList" class="profile-list"></div>
                 <p id="materialSettingsStatus" class="settings-status" aria-live="polite"></p>
             </section>
 
@@ -153,19 +231,26 @@
                         <label for="materialQuantity">Auflage</label>
                         <div class="inline-input"><input type="number" id="materialQuantity" min="0" step="1" placeholder="1000"><span>Stk.</span></div>
                     </div>
+                        <div class="input-group">
+                            <label for="materialProfitMargin">Gewinnaufschlag</label>
+                            <div class="inline-input"><input type="number" id="materialProfitMargin" min="0" step="0.1" placeholder="z. B. 20"><span>%</span></div>
+                        </div>
+                        <div class="input-group">
+                            <label for="materialVat">Mehrwertsteuer</label>
+                            <div class="inline-input"><input type="number" id="materialVat" min="0" step="0.1" value="19"><span>%</span></div>
+                        </div>
                 </div>
                 <div id="materialResult" class="material-result" aria-live="polite">Bitte Grunddaten, Produktformat und Auflage eingeben.</div>
-                <p class="calculation-note">Die Materialfläche wird aus Format × Auflage berechnet und um den Ausschuss erhöht.</p>
-            </div>
+                <p class="calculation-note">Die Materialfläche und Bogenanzahl werden bevorzugt aus dem besten Nutzen der Nutzenberechnung übernommen.</p>
+            </section>
         </div>
 
         <div class="tab-panel placeholder-panel" id="panel-ink" role="tabpanel" aria-labelledby="tab-ink" hidden>
             <div class="panel-heading-row">
                 <div>
                     <h1>Farbverbrauch</h1>
-                    <p class="hint">Berechne den theoretischen Farbverbrauch eines Druckauftrags. Das Format wird in mm eingegeben und intern in m² umgerechnet.</p>
+                    <p class="hint">Berechne den theoretischen Farbverbrauch eines Druckauftrags. Das Format wird in cm eingegeben und direkt in m² umgerechnet.</p>
                 </div>
-                <button id="inkSettingsBtn" class="btn-secondary" type="button" aria-expanded="false">⚙ Siebe einstellen</button>
             </div>
 
             <section id="inkSettings" class="settings-panel" hidden>
@@ -176,15 +261,31 @@
                         <input type="text" id="screenMesh" placeholder="z. B. 180-27">
                     </div>
                     <div class="input-group">
-                        <label for="screenConsumption">Theoretischer Farbverbrauch</label>
+                        <label for="screenConsumption">Farbvolumen des Gewebes</label>
                         <div class="inline-input">
-                            <input type="number" id="screenConsumption" min="0" step="0.1" placeholder="z. B. 17">
-                            <span>g/m²</span>
+                            <input type="number" id="screenConsumption" min="0" step="0.1" placeholder="z. B. 28">
+                            <span>cm³/m²</span>
                         </div>
                     </div>
+                    <div class="input-group">
+                        <label for="inkDensity">Dichte der Farbe</label>
+                        <div class="inline-input">
+                            <input type="number" id="inkDensity" min="0.01" step="0.01" placeholder="1,2">
+                            <span>g/cm³</span>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="inkSurcharge">Zuschuss</label>
+                        <div class="inline-input">
+                            <input type="number" id="inkSurcharge" min="0" step="0.1" placeholder="15">
+                            <span>%</span>
+                        </div>
+                    </div>
+                    <button id="saveInkSettingsBtn" class="btn-primary" type="button">Einstellungen speichern</button>
                     <button id="addScreenBtn" class="btn-primary" type="button">Sieb speichern</button>
                 </div>
                 <p id="screenError" class="error"></p>
+                <p id="inkSettingsStatus" class="settings-status" aria-live="polite"></p>
                 <div id="screenList" class="screen-list"></div>
             </section>
 
@@ -195,14 +296,14 @@
                         <label for="inkLength">Format Länge</label>
                         <div class="inline-input">
                             <input type="number" id="inkLength" min="0" step="0.1" placeholder="40">
-                            <span>mm</span>
+                            <span>cm</span>
                         </div>
                     </div>
                     <div class="input-group">
                         <label for="inkWidth">Format Breite</label>
                         <div class="inline-input">
                             <input type="number" id="inkWidth" min="0" step="0.1" placeholder="40">
-                            <span>mm</span>
+                            <span>cm</span>
                         </div>
                     </div>
                     <div class="input-group">
@@ -216,7 +317,7 @@
                 <div id="inkResults" class="ink-results" aria-live="polite">
                     <div class="ink-result">Bitte Sieb, Format und Auflage eingeben.</div>
                 </div>
-                <p class="calculation-note">Verbrauch = (Länge in mm ÷ 1000) × (Breite in mm ÷ 1000) × Auflage × theoretischer Farbverbrauch</p>
+                <p class="calculation-note">Der Bedruckungsgrad ist fest auf 100 % gesetzt. Dichte und Zuschuss werden in den Einstellungen hinterlegt.</p>
             </div>
         </div>
     </div>
