@@ -209,9 +209,17 @@ function renderDashboardComparison() {
     const bestCard = comparison.querySelector(".best-machine");
     if (bestCard && bestMachineResult) {
         bestCard.title = "Detailansicht öffnen";
+        bestCard.setAttribute("role", "button");
+        bestCard.setAttribute("tabindex", "0");
         bestCard.addEventListener("click", () => {
             const format = allFormats.find(item => item.id === bestMachineResult.fmtId);
             if (format) onRowClick(format, bestMachineResult.ori);
+        });
+        bestCard.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                bestCard.click();
+            }
         });
     }
 }
