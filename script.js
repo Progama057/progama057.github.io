@@ -191,6 +191,7 @@ function renderDashboardComparison() {
     const productWidth = parseInputValue("dashboardWidth");
     const productHeight = parseInputValue("dashboardHeight");
     const quantity = parseInputValue("dashboardQuantity");
+    const coverage = parseInputValue("dashboardCoverage");
     if (!Number.isFinite(productWidth) || productWidth <= 0 || !Number.isFinite(productHeight) || productHeight <= 0 || !Number.isFinite(quantity) || quantity <= 0) {
         comparison.textContent = "Maße und Auflage eingeben.";
         document.getElementById("dashboardInkResult").textContent = "Format und Auflage eingeben, um den Farbverbrauch zu sehen.";
@@ -202,10 +203,11 @@ function renderDashboardComparison() {
     document.getElementById("inkLength").value = productWidth / 10;
     document.getElementById("inkWidth").value = productHeight / 10;
     document.getElementById("inkQuantity").value = quantity;
+    document.getElementById("inkCoverage").value = Number.isFinite(coverage) ? coverage : "";
     recalc();
     calculateInkConsumption();
     comparison.innerHTML = document.getElementById("machineComparison").innerHTML;
-    renderDashboardInkResult(productWidth, productHeight, quantity);
+    renderDashboardInkResult(productWidth, productHeight, quantity, coverage);
     const bestCard = comparison.querySelector(".best-machine");
     if (bestCard && bestMachineResult) {
         bestCard.title = "Detailansicht öffnen";
@@ -224,26 +226,27 @@ function renderDashboardComparison() {
     }
 }
 
-function renderDashboardInkResult(lengthMm, widthMm, quantity) {
+function renderDashboardInkResult(lengthMm, widthMm, quantity, coverageValue) {
     const result = document.getElementById("dashboardInkResult");
     const densityInput = document.getElementById("inkDensity");
     const surchargeInput = document.getElementById("inkSurcharge");
     const density = densityInput ? (parseFloat(densityInput.value.replace(",", ".")) || 1.2) : 1.2;
     const surcharge = surchargeInput ? (parseFloat(surchargeInput.value.replace(",", ".")) || 15) : 15;
+    const coverage = Number.isFinite(coverageValue) ? coverageValue : 100;
     if (!inkScreens.length || !Number.isFinite(density) || density <= 0 || !Number.isFinite(surcharge) || surcharge < 0) {
         result.textContent = "Sieb und Farbverbrauchseinstellungen im Farbverbrauch hinterlegen.";
         return;
     }
     const area = (lengthMm / 1000) * (widthMm / 1000);
     const volume = inkScreens[0].volume ?? inkScreens[0].consumption ?? defaultInkVolume(inkScreens[0].mesh);
-    const total = area * volume * density * quantity * (1 + surcharge / 100);
+    const total = area * volume * density * quantity * (coverage / 100) * (1 + surcharge / 100);
     result.innerHTML = "";
     const title = document.createElement("small");
     title.textContent = `Alle Farben | Siebgewebe: ${inkScreens[0].mesh} | Farbvolumen: ${formatNumber(volume, 1)} cm³/m²`;
     const value = document.createElement("strong");
     value.textContent = `${formatNumber(total / 1000)} kg (${formatNumber(total)} g)`;
     const details = document.createElement("span");
-    details.textContent = `${lengthMm} × ${widthMm} mm | ${quantity} Stück | Zuschuss ${formatNumber(surcharge, 1)} %`;
+    details.textContent = `${lengthMm} × ${widthMm} mm | ${quantity} Stück | Farbdeckung ${formatNumber(coverage, 1)} % | Zuschuss ${formatNumber(surcharge, 1)} %`;
     result.append(title, value, details);
 }
 
@@ -722,7 +725,8 @@ function calculateInkConsumption() {
     const length = parseFloat(document.getElementById("inkLength").value.replace(",", "."));
     const width = parseFloat(document.getElementById("inkWidth").value.replace(",", "."));
     const quantity = parseFloat(document.getElementById("inkQuantity").value.replace(",", "."));
-    const coverage = 100;
+    const coverageInput = document.getElementById("inkCoverage").value.trim();
+    const coverage = coverageInput ? parseFloat(coverageInput.replace(",", ".")) : 100;
     const densityInput = document.getElementById("inkDensity").value.trim();
     const density = densityInput ? parseFloat(densityInput.replace(",", ".")) : 1.2;
     const surchargeInput = document.getElementById("inkSurcharge").value.trim();
@@ -945,18 +949,20 @@ document.addEventListener("DOMContentLoaded", () => {
     loadInkScreens();
     renderInkScreens();
     loadInkSettings();
-    ["inkLength", "inkWidth", "inkQuantity"].forEach(id => {
+    ["inkLength", "inkWidth", "inkQuantity", "inkCoverage"].forEach(id => {
         document.getElementById(id).addEventListener("input", calculateInkConsumption);
         document.getElementById(id).addEventListener("change", calculateInkConsumption);
     });
     calculateInkConsumption();
-    ["inkDensity", "inkSurcharge"].forEach(id => {
+    ["inkDensity", "inkSurcharge", "inkCoverage"].forEach(id => {
         document.getElementById(id).addEventListener("input", () => {
             calculateInkConsumption();
             const width = parseInputValue("dashboardWidth");
             const height = parseInputValue("dashboardHeight");
             const quantity = parseInputValue("dashboardQuantity");
-            if (width > 0 && height > 0 && quantity > 0) renderDashboardInkResult(width, height, quantity);
+            const coverage = parseInputValue("inkCoverage");
+            document.getElementById("dashboardCoverage").value = Number.isFinite(coverage) ? coverage : "";
+            if (width > 0 && height > 0 && quantity > 0) renderDashboardInkResult(width, height, quantity, coverage);
         });
     });
     document.getElementById("saveInkSettingsBtn").addEventListener("click", () => {
@@ -1023,7 +1029,7 @@ document.addEventListener("DOMContentLoaded", () => {
         renderMaterialProfiles();
         document.getElementById("materialSettingsStatus").textContent = "Materialprofil lokal gespeichert.";
     });
-    ["dashboardWidth", "dashboardHeight", "dashboardQuantity"].forEach(id => document.getElementById(id).addEventListener("input", renderDashboardComparison));
+    ["dashboardWidth", "dashboardHeight", "dashboardQuantity", "dashboardCoverage"].forEach(id => document.getElementById(id).addEventListener("input", renderDashboardComparison));
     document.querySelectorAll("[data-open-tab]").forEach(button => button.addEventListener("click", () => document.querySelector(`[data-tab=\"${button.dataset.openTab}\"]`).click()));
     [...machineSettingIds, ...machineRuleIds].forEach(id => {
         document.getElementById(id).addEventListener("input", () => {
