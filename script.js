@@ -22,6 +22,20 @@ const defaultFormats = [
 
 let allFormats = [...defaultFormats];
 const ORIENTATIONS = ["h", "v"];
+let bestMachineResult = null;
+const machineSettingIds = ["machineGripperSPS", "machineSpeedSPS", "machineGripperThime", "machineSpeedThime", "machineGripperFuji", "machineSpeedFuji", "machineGripperMimaki", "machineSpeedMimaki", "machineGap"];
+const machineRuleIds = ["spsMinSheets", "thimeMaxSheets", "primeMaxSheets"];
+const machineSettingsByName = {
+    "SPS": { gripper: "machineGripperSPS", speed: "machineSpeedSPS" },
+    "Thime 3020": { gripper: "machineGripperThime", speed: "machineSpeedThime" },
+    "Fuji Prime 30": { gripper: "machineGripperFuji", speed: "machineSpeedFuji" },
+    "Mimaki (Rolle)": { gripper: "machineGripperMimaki", speed: "machineSpeedMimaki" }
+};
+const materialCostIds = ["prepressCost", "packagingCost", "materialProfitMargin", "materialVat"];
+
+window.addEventListener("pagehide", () => {
+    sessionStorage.removeItem("isAdmin");
+});
 
 function formatPercent(value) {
     if (!isFinite(value) || value < 0) return "–";
@@ -167,6 +181,64 @@ function renderTables() {
     }
 }
 
+function getMachineRule(id, fallback) {
+    const value = parseInputValue(id);
+    return Number.isFinite(value) ? value : fallback;
+}
+
+function renderDashboardComparison() {
+    const comparison = document.getElementById("dashboardComparison");
+    const productWidth = parseInputValue("dashboardWidth");
+    const productHeight = parseInputValue("dashboardHeight");
+    const quantity = parseInputValue("dashboardQuantity");
+    if (!Number.isFinite(productWidth) || productWidth <= 0 || !Number.isFinite(productHeight) || productHeight <= 0 || !Number.isFinite(quantity) || quantity <= 0) {
+        comparison.textContent = "Maße und Auflage eingeben.";
+        document.getElementById("dashboardInkResult").textContent = "Format und Auflage eingeben, um den Farbverbrauch zu sehen.";
+        return;
+    }
+    document.getElementById("productWidth").value = productWidth;
+    document.getElementById("productHeight").value = productHeight;
+    document.getElementById("productionQuantity").value = quantity;
+    document.getElementById("inkLength").value = productWidth / 10;
+    document.getElementById("inkWidth").value = productHeight / 10;
+    document.getElementById("inkQuantity").value = quantity;
+    recalc();
+    calculateInkConsumption();
+    comparison.innerHTML = document.getElementById("machineComparison").innerHTML;
+    renderDashboardInkResult(productWidth, productHeight, quantity);
+    const bestCard = comparison.querySelector(".best-machine");
+    if (bestCard && bestMachineResult) {
+        bestCard.title = "Detailansicht öffnen";
+        bestCard.addEventListener("click", () => {
+            const format = allFormats.find(item => item.id === bestMachineResult.fmtId);
+            if (format) onRowClick(format, bestMachineResult.ori);
+        });
+    }
+}
+
+function renderDashboardInkResult(lengthMm, widthMm, quantity) {
+    const result = document.getElementById("dashboardInkResult");
+    const densityInput = document.getElementById("inkDensity");
+    const surchargeInput = document.getElementById("inkSurcharge");
+    const density = densityInput ? (parseFloat(densityInput.value.replace(",", ".")) || 1.2) : 1.2;
+    const surcharge = surchargeInput ? (parseFloat(surchargeInput.value.replace(",", ".")) || 15) : 15;
+    if (!inkScreens.length || !Number.isFinite(density) || density <= 0 || !Number.isFinite(surcharge) || surcharge < 0) {
+        result.textContent = "Sieb und Farbverbrauchseinstellungen im Farbverbrauch hinterlegen.";
+        return;
+    }
+    const area = (lengthMm / 1000) * (widthMm / 1000);
+    const volume = inkScreens[0].volume ?? inkScreens[0].consumption ?? defaultInkVolume(inkScreens[0].mesh);
+    const total = area * volume * density * quantity * (1 + surcharge / 100);
+    result.innerHTML = "";
+    const title = document.createElement("small");
+    title.textContent = `Alle Farben | Siebgewebe: ${inkScreens[0].mesh} | Farbvolumen: ${formatNumber(volume, 1)} cm³/m²`;
+    const value = document.createElement("strong");
+    value.textContent = `${formatNumber(total / 1000)} kg (${formatNumber(total)} g)`;
+    const details = document.createElement("span");
+    details.textContent = `${lengthMm} × ${widthMm} mm | ${quantity} Stück | Zuschuss ${formatNumber(surcharge, 1)} %`;
+    result.append(title, value, details);
+}
+
 function recalc() {
     const wInput = document.getElementById("productWidth");
     const hInput = document.getElementById("productHeight");
@@ -183,12 +255,16 @@ function recalc() {
 
     if (!wValue && !hValue) {
         errorEl.textContent = "";
+        bestMachineResult = null;
+        document.getElementById("machineComparison").textContent = "Produktmaße eingeben, um Maschinen zu vergleichen.";
         renderTables();
         return;
     }
 
     if (isNaN(productWidth) || productWidth <= 0 || isNaN(productHeight) || productHeight <= 0) {
         errorEl.textContent = "Produktbreite und -höhe müssen > 0 sein.";
+        bestMachineResult = null;
+        document.getElementById("machineComparison").textContent = "Produktmaße eingeben, um Maschinen zu vergleichen.";
         return;
     }
 
@@ -196,15 +272,18 @@ function recalc() {
 
     // Gruppiere die Ergebnisse nach Maschine, um für jede den besten Wert zu finden
     let machineResults = {};
+    const gap = parseInputValue("machineGap") || 0;
 
     allFormats.forEach(fmt => {
         let usableWidth = fmt.width;
         let usableHeight = fmt.height; 
+        const machineSettings = machineSettingsByName[fmt.machine] || machineSettingsByName.SPS;
+        const gripper = parseInputValue(machineSettings.gripper) || 0;
 
         // HARTE GREIFERKANTE: 10mm unten bei SPS und Thime
         let hasGripper = (fmt.machine === 'SPS' || fmt.machine === 'Thime 3020');
         if (hasGripper && !fmt.isRoll) {
-            usableHeight -= 10;
+            usableHeight -= gripper;
         }
 
         ORIENTATIONS.forEach(ori => {
@@ -238,7 +317,7 @@ function recalc() {
                     return;
                 }
 
-                const countX = Math.floor(usableWidth / pW);
+                const countX = Math.floor((usableWidth + gap) / (pW + gap));
                 if (countX <= 0) {
                     piecesCell.textContent = "Produkt zu breit für diese Rolle";
                     piecesCell.className = "muted";
@@ -261,8 +340,8 @@ function recalc() {
                 const productArea = productWidth * productHeight;
                 const sheetArea = usableWidth * usableHeight;
 
-                const countX = Math.floor(usableWidth / pW);
-                const countY = Math.floor(usableHeight / pH);
+                const countX = Math.floor((usableWidth + gap) / (pW + gap));
+                const countY = Math.floor((usableHeight + gap) / (pH + gap));
                 const pieces = Math.max(countX, 0) * Math.max(countY, 0);
                 
                 if (pieces === 0) {
@@ -320,6 +399,46 @@ function recalc() {
             });
         }
     }
+
+    const comparison = document.getElementById("machineComparison");
+    const machineCandidates = Object.entries(machineResults).map(([machine, values]) => {
+        const candidates = values.slice();
+        const bestCandidate = candidates.sort((a, b) => b.pieces - a.pieces || b.efficiency - a.efficiency)[0];
+        return bestCandidate ? { ...bestCandidate, machine } : null;
+    }).filter(Boolean);
+    const spsMinimum = getMachineRule("spsMinSheets", 300);
+    const thimeMaximum = getMachineRule("thimeMaxSheets", 400);
+    const primeMaximum = getMachineRule("primeMaxSheets", 50);
+    const thimeCandidate = machineCandidates.find(candidate => candidate.machine === "Thime 3020");
+    const thimeSupportsProduct = Boolean(thimeCandidate);
+    const thimeSheets = thimeCandidate && productionQuantity > 0 ? Math.ceil(productionQuantity / thimeCandidate.pieces) : 0;
+    const allowedCandidates = machineCandidates.filter(candidate => {
+        const candidateSheets = productionQuantity > 0 ? Math.ceil(productionQuantity / candidate.pieces) : 0;
+        if (candidate.machine === "SPS") return candidateSheets >= spsMinimum || !thimeSupportsProduct || thimeSheets > thimeMaximum;
+        if (candidate.machine === "Thime 3020" && candidateSheets > thimeMaximum) return false;
+        if (candidate.machine === "Fuji Prime 30" && candidateSheets > primeMaximum) return false;
+        return true;
+    });
+    allowedCandidates.sort((a, b) => b.pieces - a.pieces || b.efficiency - a.efficiency);
+    bestMachineResult = allowedCandidates[0] || null;
+    comparison.innerHTML = allowedCandidates.length ? "" : "Keine Maschine erfüllt die Auswahlregeln.";
+    if (allowedCandidates.length) {
+        const grid = document.createElement("div");
+        grid.className = "machine-comparison-grid";
+        allowedCandidates.forEach((item, index) => {
+            const card = document.createElement("div");
+            card.className = `machine-comparison-item${index === 0 ? " best-machine" : ""}`;
+            const name = document.createElement("strong");
+            name.textContent = `${index === 0 ? "Beste Wahl: " : ""}${item.machine}`;
+            const detail = document.createElement("span");
+            const sheets = productionQuantity > 0 ? Math.ceil(productionQuantity / item.pieces) : "–";
+            detail.textContent = `${item.pieces} Nutzen | ${formatPercent(item.efficiency)} | ${sheets} Bogen`;
+            card.append(name, detail);
+            grid.appendChild(card);
+        });
+        comparison.appendChild(grid);
+    }
+    if (typeof calculateMaterialCosts === "function") calculateMaterialCosts();
 }
 
 function onRowClick(fmt, orientation) {
@@ -360,8 +479,11 @@ function onRowClick(fmt, orientation) {
     let usableHeight = sheetHeight;
     let hasGripper = (fmt.machine === 'SPS' || fmt.machine === 'Thime 3020');
 
+    const defaultSettings = machineSettingsByName[fmt.machine] || machineSettingsByName.SPS;
+    const gripper = parseInputValue(defaultSettings.gripper) || 0;
+    const gap = parseInputValue("machineGap") || 0;
     if (hasGripper && !fmt.isRoll) {
-        usableHeight -= 10;
+        usableHeight -= gripper;
     }
 
     if (usableWidth <= 0 || usableHeight <= 0) {
@@ -370,7 +492,7 @@ function onRowClick(fmt, orientation) {
     }
 
     const orientationLabel = orientation === "h" ? "horizontal" : "vertikal";
-    const title = fmt.name + " – " + orientationLabel + (hasGripper ? " (inkl. 10mm Greifer unten)" : "");
+    const title = fmt.name + " – " + orientationLabel + (hasGripper ? ` (inkl. ${formatNumber(gripper, 1)}mm Greifer unten)` : "");
     
     showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usableHeight,
         productWidth, productHeight, hasGripper, title);
@@ -381,6 +503,9 @@ function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usa
     const overlay = document.getElementById("previewOverlay");
     const titleEl = document.getElementById("previewTitle");
     const svg = document.getElementById("previewSvg");
+    const previewSettings = machineSettingsByName[fmt.machine] || machineSettingsByName.SPS;
+    const gripper = parseInputValue(previewSettings.gripper) || 0;
+    const gap = parseInputValue("machineGap") || 0;
 
     titleEl.textContent = title;
 
@@ -413,7 +538,7 @@ function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usa
 
     // Fester Greifer unten (Rot)
     if (hasGripper && !fmt.isRoll) {
-        const gripperPx = 10 * scaleBase;
+        const gripperPx = gripper * scaleBase;
         const gripperRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         gripperRect.setAttribute("x", sheetX); 
         gripperRect.setAttribute("y", sheetY + sheetHpx - gripperPx);
@@ -431,7 +556,7 @@ function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usa
     let usableHpx = sheetHpx;
 
     if (hasGripper && !fmt.isRoll) {
-        usableHpx -= (10 * scaleBase);
+        usableHpx -= (gripper * scaleBase);
     }
 
     // Nutzbare Fläche (Grün gestrichelt zur klaren Trennung)
@@ -451,22 +576,26 @@ function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usa
     const prodWpx = prodWmm * scaleBase;
     const prodHpx = prodHmm * scaleBase;
 
-    let countX = Math.floor(usableWpx / prodWpx);
-    let countY = Math.floor(usableHpx / prodHpx);
+    let countX = Math.floor((usableWpx + gap * scaleBase) / (prodWpx + gap * scaleBase));
+    let countY = Math.floor((usableHpx + gap * scaleBase) / (prodHpx + gap * scaleBase));
     
     const qInput = parseInt(document.getElementById("productionQuantity").value, 10);
     let totalDrawn = 0;
+    const gridWidth = countX * prodWpx + Math.max(0, countX - 1) * gap * scaleBase;
+    const gridHeight = countY * prodHpx + Math.max(0, countY - 1) * gap * scaleBase;
+    const offsetX = (usableWpx - gridWidth) / 2;
+    const offsetY = (usableHpx - gridHeight) / 2;
 
     for (let iy = 0; iy < countY; iy++) {
         for (let ix = 0; ix < countX; ix++) {
             if (fmt.isRoll && totalDrawn >= qInput) break;
 
-            const x = usableX + ix * prodWpx;
-            const y = usableY + iy * prodHpx;
+            const x = usableX + offsetX + ix * (prodWpx + gap * scaleBase);
+            const y = usableY + offsetY + iy * (prodHpx + gap * scaleBase);
             const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
             r.setAttribute("x", x + 0.5); r.setAttribute("y", y + 0.5);
             r.setAttribute("width", prodWpx - 1); r.setAttribute("height", prodHpx - 1);
-            r.setAttribute("fill", "#3b82f6"); // Starkes Blau
+            r.setAttribute("fill", document.body.classList.contains("admin-mode") ? "#dc2626" : "#3b82f6"); // Adminmodus nutzt rote Nutzenflächen
             r.setAttribute("fill-opacity", "0.85");
             r.setAttribute("stroke", "#ffffff"); // Weißer Rand für perfekte Trennung
             r.setAttribute("stroke-width", "1");
@@ -505,6 +634,13 @@ function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usa
 
 let inkScreens = [];
 
+function defaultInkVolume(mesh) {
+    const meshNumber = Number.parseInt(mesh, 10);
+    if (meshNumber >= 90) return 14;
+    if (meshNumber >= 54) return 28;
+    return 55;
+}
+
 function formatNumber(value, maximumFractionDigits = 2) {
     return value.toLocaleString("de-DE", { maximumFractionDigits });
 }
@@ -519,6 +655,23 @@ function loadInkScreens() {
 
 function saveInkScreens() {
     localStorage.setItem("inkScreens", JSON.stringify(inkScreens));
+}
+
+function loadInkSettings() {
+    try {
+        const settings = JSON.parse(localStorage.getItem("inkCalculationSettings") || "{}");
+        document.getElementById("inkDensity").value = settings.density ?? "";
+        document.getElementById("inkSurcharge").value = settings.surcharge ?? "";
+    } catch (e) {
+        console.error("Fehler beim Laden der Farbverbrauchseinstellungen", e);
+    }
+}
+
+function saveInkSettings() {
+    localStorage.setItem("inkCalculationSettings", JSON.stringify({
+        density: document.getElementById("inkDensity").value,
+        surcharge: document.getElementById("inkSurcharge").value
+    }));
 }
 
 function renderInkScreens() {
@@ -537,7 +690,7 @@ function renderInkScreens() {
         const meshLabel = document.createElement("strong");
         meshLabel.textContent = screen.mesh;
         const consumptionLabel = document.createElement("span");
-        consumptionLabel.textContent = `${formatNumber(screen.consumption, 1)} g/m²`;
+        consumptionLabel.textContent = `${formatNumber(screen.volume ?? screen.consumption ?? defaultInkVolume(screen.mesh), 1)} cm³/m²`;
         item.append(meshLabel, consumptionLabel);
         const deleteButton = document.createElement("button");
         deleteButton.className = "screen-delete";
@@ -561,29 +714,38 @@ function calculateInkConsumption() {
     const length = parseFloat(document.getElementById("inkLength").value.replace(",", "."));
     const width = parseFloat(document.getElementById("inkWidth").value.replace(",", "."));
     const quantity = parseFloat(document.getElementById("inkQuantity").value.replace(",", "."));
+    const coverage = 100;
+    const densityInput = document.getElementById("inkDensity").value.trim();
+    const density = densityInput ? parseFloat(densityInput.replace(",", ".")) : 1.2;
+    const surchargeInput = document.getElementById("inkSurcharge").value.trim();
+    const surcharge = surchargeInput ? parseFloat(surchargeInput.replace(",", ".")) : 15;
+    const invalidMessage = "Bitte Sieb, Länge, Breite, Bedruckungsgrad und eine Auflage größer als 0 eingeben. Die Dichte muss größer als 0 sein.";
 
-    if (inkScreens.length === 0 || !Number.isFinite(length) || length <= 0 || !Number.isFinite(width) || width <= 0 || !Number.isFinite(quantity) || quantity <= 0) {
-        results.innerHTML = "<div class=\"ink-result\">Bitte Sieb, Format und Auflage eingeben.</div>";
+    if (inkScreens.length === 0 || !Number.isFinite(length) || length <= 0 || !Number.isFinite(width) || width <= 0 || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(coverage) || coverage < 0 || coverage > 100 || !Number.isFinite(density) || density <= 0 || !Number.isFinite(surcharge) || surcharge < 0) {
+        results.innerHTML = "";
+        const result = document.createElement("div");
+        result.className = "ink-result";
+            result.textContent = invalidMessage;
+        results.appendChild(result);
         return;
     }
 
-    const areaInSquareMeters = (length / 1000) * (width / 1000);
+    const areaInSquareMeters = (length * width / 10000) * (coverage / 100);
     results.innerHTML = "";
     inkScreens.forEach(screen => {
-        const consumption = areaInSquareMeters * quantity * screen.consumption;
+        const volume = screen.volume ?? screen.consumption ?? defaultInkVolume(screen.mesh);
+        const theoreticalPerPrint = areaInSquareMeters * volume * density;
+        const pureNeed = theoreticalPerPrint * quantity;
+        const totalNeed = pureNeed * (1 + surcharge / 100);
         const result = document.createElement("div");
         result.className = "ink-result";
-        const details = document.createElement("small");
-        details.textContent = `Siebgewebe: ${screen.mesh}`;
-        const detailsValue = document.createElement("span");
-        detailsValue.textContent = `${formatNumber(screen.consumption, 1)} g/m² theoretischer Verbrauch`;
-        details.append(document.createElement("br"), detailsValue);
-        const resultLabel = document.createTextNode("Theoretischer Farbverbrauch: ");
-        const resultValue = document.createElement("strong");
-        resultValue.textContent = `${formatNumber(consumption)} g`;
-        const resultKg = document.createElement("span");
-        resultKg.textContent = ` (${formatNumber(consumption / 1000)} kg)`;
-        result.append(details, resultLabel, resultValue, resultKg);
+        const title = document.createElement("small");
+        title.textContent = `Farbe (alle Farben gleich) | Siebgewebe: ${screen.mesh} | Farbvolumen: ${formatNumber(volume, 1)} cm³/m²`;
+            const total = document.createElement("strong");
+            total.textContent = `${formatNumber(totalNeed / 1000)} kg (${formatNumber(totalNeed)} g)`;
+        const details = document.createElement("span");
+        details.textContent = `Reiner Bedarf: ${formatNumber(pureNeed)} g | Praxisaufschlag: ${surcharge} %`;
+        result.append(title, total, details);
         results.appendChild(result);
     });
 }
@@ -597,7 +759,7 @@ function parseInputValue(id) {
 function loadMaterialSettings() {
     try {
         const settings = JSON.parse(localStorage.getItem("materialSettings") || "{}");
-        materialSettingIds.forEach(id => {
+        [...materialSettingIds, ...materialCostIds].forEach(id => {
             if (settings[id] !== undefined) document.getElementById(id).value = settings[id];
         });
     } catch (e) {
@@ -617,6 +779,10 @@ function calculateMaterialCosts() {
     const setupCost = parseInputValue("setupCost");
     const hourlyRate = parseInputValue("hourlyRate");
     const productionHours = parseInputValue("productionHours");
+    const prepressCost = parseInputValue("prepressCost") || 0;
+    const packagingCost = parseInputValue("packagingCost") || 0;
+    const profitMargin = parseInputValue("materialProfitMargin") || 0;
+    const vat = parseInputValue("materialVat") || 0;
 
     const requiredValues = [productLength, productWidth, quantity, materialPrice, sheetLength, sheetWidth, waste, setupCost, hourlyRate, productionHours];
     if (requiredValues.some(value => !Number.isFinite(value) || value < 0) || productLength === 0 || productWidth === 0 || quantity === 0 || sheetLength === 0 || sheetWidth === 0) {
@@ -628,11 +794,16 @@ function calculateMaterialCosts() {
     const netMaterialArea = productArea * quantity;
     const totalMaterialArea = netMaterialArea * (1 + waste / 100);
     const sheetArea = (sheetLength / 1000) * (sheetWidth / 1000);
-    const sheetsNeeded = Math.ceil(totalMaterialArea / sheetArea);
+    const sheetsNeeded = bestMachineResult && bestMachineResult.pieces > 0 ? Math.ceil(quantity / bestMachineResult.pieces) : Math.ceil(totalMaterialArea / sheetArea);
     const purchasedArea = sheetsNeeded * sheetArea;
     const materialCost = purchasedArea * materialPrice;
-    const laborCost = productionHours * hourlyRate;
-    const totalCost = materialCost + setupCost + laborCost;
+    const speedSetting = bestMachineResult ? (machineSettingsByName[bestMachineResult.machine] || {}).speed : null;
+    const machineSpeed = speedSetting ? parseInputValue(speedSetting) || 0 : 0;
+    const effectiveProductionHours = productionHours > 0 ? productionHours : (bestMachineResult && machineSpeed > 0 ? sheetsNeeded / machineSpeed : 0);
+    const laborCost = effectiveProductionHours * hourlyRate;
+    const subtotal = materialCost + setupCost + laborCost + prepressCost + packagingCost;
+    const saleNet = subtotal * (1 + profitMargin / 100);
+    const saleGross = saleNet * (1 + vat / 100);
 
     result.innerHTML = "";
     const headline = document.createElement("strong");
@@ -642,7 +813,7 @@ function calculateMaterialCosts() {
     result.appendChild(headline);
     const grid = document.createElement("div");
     grid.className = "material-result-grid";
-    [["Benötigte Materialfläche", `${formatNumber(totalMaterialArea)} m²`], ["Benötigte Bogen", `${sheetsNeeded}`], ["Materialkosten", `${formatNumber(materialCost)} €`], ["Rüstkosten", `${formatNumber(setupCost)} €`], ["Maschinen-/Arbeitskosten", `${formatNumber(laborCost)} €`], ["Gesamtkosten", `${formatNumber(totalCost)} €`]].forEach(([label, value]) => {
+    [["Beste Maschine", bestMachineResult ? bestMachineResult.machine : "Keine Auswahl"], ["Benötigte Materialfläche", `${formatNumber(totalMaterialArea)} m²`], ["Benötigte Bogen", `${sheetsNeeded}`], ["Materialkosten", `${formatNumber(materialCost)} €`], ["Rüstkosten", `${formatNumber(setupCost)} €`], ["Vorstufe / Belichtung", `${formatNumber(prepressCost)} €`], ["Maschinen-/Arbeitskosten", `${formatNumber(laborCost)} €`], ["Verpackung / Versand", `${formatNumber(packagingCost)} €`], ["Selbstkosten", `${formatNumber(subtotal)} €`], ["Gewinnaufschlag", `${formatNumber(profitMargin, 1)} %`], ["Verkaufspreis netto", `${formatNumber(saleNet)} €`], ["Verkaufspreis brutto", `${formatNumber(saleGross)} €`]].forEach(([label, value]) => {
         const item = document.createElement("div");
         item.className = "material-result-item";
         const labelElement = document.createElement("span");
@@ -655,9 +826,58 @@ function calculateMaterialCosts() {
     result.appendChild(grid);
 }
 
+function renderMaterialProfiles() {
+    const list = document.getElementById("materialProfileList");
+    let profiles = [];
+    try { profiles = JSON.parse(localStorage.getItem("materialProfiles") || "[]"); } catch (e) { profiles = []; }
+    list.innerHTML = "";
+    profiles.forEach(profile => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = profile.name;
+        button.title = "Materialprofil laden";
+        button.addEventListener("click", () => {
+            const settings = profile.settings || { materialName: profile.name, materialPrice: profile.price };
+            [...materialSettingIds, ...materialCostIds].forEach(id => {
+                if (settings[id] !== undefined) document.getElementById(id).value = settings[id];
+            });
+            calculateMaterialCosts();
+        });
+        list.appendChild(button);
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const tabButtons = document.querySelectorAll(".tab-button");
     const tabPanels = document.querySelectorAll(".tab-panel");
+    const materialTab = document.getElementById("tab-material");
+    const adminSettingsSections = document.getElementById("adminSettingsSections");
+    const inkSettings = document.getElementById("inkSettings");
+    const materialSettings = document.getElementById("materialSettings");
+    document.getElementById("inkSettingsHost").appendChild(inkSettings);
+    document.getElementById("materialSettingsHost").appendChild(materialSettings);
+
+    function updateAdminVisibility(isAdmin) {
+        document.body.classList.toggle("admin-mode", isAdmin);
+        document.querySelectorAll(".btn-primary").forEach(button => {
+            if (isAdmin) {
+                button.style.setProperty("background-color", document.body.classList.contains("dark-mode") ? "#f87171" : "#dc2626", "important");
+            } else {
+                button.style.removeProperty("background-color");
+            }
+        });
+        materialTab.hidden = !isAdmin;
+        document.getElementById("resetSettingsBtn").hidden = !isAdmin;
+        document.getElementById("adminBadge").hidden = !isAdmin;
+        adminSettingsSections.hidden = !isAdmin;
+        inkSettings.hidden = !isAdmin;
+        materialSettings.hidden = !isAdmin;
+        if (!isAdmin && document.getElementById("panel-material").classList.contains("active")) {
+            document.getElementById("tab-utilization").click();
+        }
+    }
+
+    updateAdminVisibility(sessionStorage.getItem("isAdmin") === "true");
 
     tabButtons.forEach(button => {
         button.addEventListener("click", () => {
@@ -677,56 +897,138 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    const generalSettings = document.getElementById("generalSettings");
+    document.getElementById("generalSettingsBtn").addEventListener("click", () => {
+        const isOpen = !generalSettings.hidden;
+        generalSettings.hidden = isOpen;
+        document.getElementById("generalSettingsBtn").setAttribute("aria-expanded", String(!isOpen));
+    });
+    document.getElementById("lightModeBtn").addEventListener("click", () => {
+        document.body.classList.remove("dark-mode");
+        localStorage.setItem("theme", "light");
+        updateThemeButton(false);
+    });
+    document.getElementById("resetSettingsBtn").addEventListener("click", () => {
+        if (!confirm("Alle lokal gespeicherten Settings löschen?")) return;
+        ["customFormats", "inkScreens", "inkCalculationSettings", "materialSettings", "materialProfiles", "machineSettings", "theme"].forEach(key => localStorage.removeItem(key));
+        sessionStorage.removeItem("isAdmin");
+        window.location.reload();
+    });
+    document.getElementById("adminLoginBtn").addEventListener("click", () => {
+        const user = document.getElementById("adminUser").value;
+        const password = document.getElementById("adminPassword").value;
+        const status = document.getElementById("adminStatus");
+        if (user === "sj" && password === "sj") {
+            sessionStorage.setItem("isAdmin", "true");
+            updateAdminVisibility(true);
+            generalSettings.hidden = false;
+            document.getElementById("generalSettingsBtn").setAttribute("aria-expanded", "true");
+            status.textContent = "Adminzugang aktiviert.";
+        } else {
+            status.textContent = "Benutzername oder Passwort ist falsch.";
+        }
+    });
+    document.getElementById("adminLogoutBtn").addEventListener("click", () => {
+        sessionStorage.removeItem("isAdmin");
+        updateAdminVisibility(false);
+        document.getElementById("adminStatus").textContent = "Admin abgemeldet.";
+    });
+
     loadInkScreens();
     renderInkScreens();
-    document.getElementById("inkSettingsBtn").addEventListener("click", () => {
-        const settings = document.getElementById("inkSettings");
-        const isOpen = !settings.hidden;
-        settings.hidden = isOpen;
-        document.getElementById("inkSettingsBtn").setAttribute("aria-expanded", String(!isOpen));
-    });
+    loadInkSettings();
     ["inkLength", "inkWidth", "inkQuantity"].forEach(id => {
         document.getElementById(id).addEventListener("input", calculateInkConsumption);
         document.getElementById(id).addEventListener("change", calculateInkConsumption);
+    });
+    calculateInkConsumption();
+    ["inkDensity", "inkSurcharge"].forEach(id => {
+        document.getElementById(id).addEventListener("input", () => {
+            calculateInkConsumption();
+            const width = parseInputValue("dashboardWidth");
+            const height = parseInputValue("dashboardHeight");
+            const quantity = parseInputValue("dashboardQuantity");
+            if (width > 0 && height > 0 && quantity > 0) renderDashboardInkResult(width, height, quantity);
+        });
+    });
+    document.getElementById("saveInkSettingsBtn").addEventListener("click", () => {
+        const density = parseFloat(document.getElementById("inkDensity").value.replace(",", "."));
+        const surcharge = parseFloat(document.getElementById("inkSurcharge").value.replace(",", "."));
+        const status = document.getElementById("inkSettingsStatus");
+        if (!Number.isFinite(density) || density <= 0 || !Number.isFinite(surcharge) || surcharge < 0) {
+            status.textContent = "Bitte gültige Werte für Dichte und Zuschuss eingeben.";
+            return;
+        }
+        saveInkSettings();
+        status.textContent = "Farbverbrauchseinstellungen gespeichert.";
+        calculateInkConsumption();
     });
     document.getElementById("addScreenBtn").addEventListener("click", () => {
         const meshInput = document.getElementById("screenMesh");
         const consumptionInput = document.getElementById("screenConsumption");
         const mesh = meshInput.value.trim();
-        const consumption = parseFloat(consumptionInput.value.replace(",", "."));
+        const volume = parseFloat(consumptionInput.value.replace(",", "."));
         const error = document.getElementById("screenError");
 
-        if (!mesh || !Number.isFinite(consumption) || consumption < 0) {
-            error.textContent = "Bitte Siebgewebe und einen gültigen Farbverbrauch eingeben.";
+        if (!mesh || (Number.isFinite(volume) && volume < 0)) {
+            error.textContent = "Bitte ein Siebgewebe und ein gültiges Farbvolumen eingeben.";
             return;
         }
 
-        inkScreens.push({ id: `screen-${Date.now()}`, mesh, consumption });
+        inkScreens.push({ id: `screen-${Date.now()}`, mesh, volume: Number.isFinite(volume) && volume > 0 ? volume : defaultInkVolume(mesh) });
         saveInkScreens();
         renderInkScreens();
         meshInput.value = "";
         consumptionInput.value = "";
         error.textContent = "";
         calculateInkConsumption();
+        const dashboardWidth = parseInputValue("dashboardWidth");
+        const dashboardHeight = parseInputValue("dashboardHeight");
+        const dashboardQuantity = parseInputValue("dashboardQuantity");
+        if (dashboardWidth > 0 && dashboardHeight > 0 && dashboardQuantity > 0) renderDashboardInkResult(dashboardWidth, dashboardHeight, dashboardQuantity);
     });
 
     loadMaterialSettings();
-    document.getElementById("materialSettingsBtn").addEventListener("click", () => {
-        const settings = document.getElementById("materialSettings");
-        const isOpen = !settings.hidden;
-        settings.hidden = isOpen;
-        document.getElementById("materialSettingsBtn").setAttribute("aria-expanded", String(!isOpen));
-    });
+    renderMaterialProfiles();
     document.getElementById("saveMaterialSettingsBtn").addEventListener("click", () => {
         const settings = {};
-        materialSettingIds.forEach(id => settings[id] = document.getElementById(id).value);
+        [...materialSettingIds, ...materialCostIds].forEach(id => settings[id] = document.getElementById(id).value);
         localStorage.setItem("materialSettings", JSON.stringify(settings));
         document.getElementById("materialSettingsStatus").textContent = "Grunddaten lokal gespeichert.";
         calculateMaterialCosts();
     });
-    ["materialProductLength", "materialProductWidth", "materialQuantity", ...materialSettingIds].forEach(id => {
+    ["materialProductLength", "materialProductWidth", "materialQuantity", ...materialSettingIds, ...materialCostIds].forEach(id => {
         document.getElementById(id).addEventListener("input", calculateMaterialCosts);
     });
+    document.getElementById("saveMaterialProfileBtn").addEventListener("click", () => {
+        const nameInput = document.getElementById("materialProfileName");
+        const name = nameInput.value.trim();
+        if (!name) return;
+        let profiles = [];
+        try { profiles = JSON.parse(localStorage.getItem("materialProfiles") || "[]"); } catch (e) { profiles = []; }
+        profiles = profiles.filter(profile => profile.name !== name);
+        const settings = {};
+        [...materialSettingIds, ...materialCostIds].forEach(id => settings[id] = document.getElementById(id).value);
+        profiles.push({ name, settings });
+        localStorage.setItem("materialProfiles", JSON.stringify(profiles));
+        nameInput.value = "";
+        renderMaterialProfiles();
+        document.getElementById("materialSettingsStatus").textContent = "Materialprofil lokal gespeichert.";
+    });
+    ["dashboardWidth", "dashboardHeight", "dashboardQuantity"].forEach(id => document.getElementById(id).addEventListener("input", renderDashboardComparison));
+    document.querySelectorAll("[data-open-tab]").forEach(button => button.addEventListener("click", () => document.querySelector(`[data-tab=\"${button.dataset.openTab}\"]`).click()));
+    [...machineSettingIds, ...machineRuleIds].forEach(id => {
+        document.getElementById(id).addEventListener("input", () => {
+            const settings = {};
+            [...machineSettingIds, ...machineRuleIds].forEach(settingId => settings[settingId] = document.getElementById(settingId).value);
+            localStorage.setItem("machineSettings", JSON.stringify(settings));
+            recalc();
+        });
+    });
+    try {
+        const settings = JSON.parse(localStorage.getItem("machineSettings") || "{}");
+        [...machineSettingIds, ...machineRuleIds].forEach(id => { if (settings[id] !== undefined) document.getElementById(id).value = settings[id]; });
+    } catch (e) { /* Defaults remain active. */ }
 
     loadCustomFormats();
     renderTables();
@@ -830,27 +1132,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("previewClose").addEventListener("click", () => overlay.style.display = "none");
     overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.style.display = "none"; });
 
-    const themeToggleBtn = document.getElementById("themeToggle");
-    const iconSpan = themeToggleBtn.querySelector(".icon");
-    const textSpan = themeToggleBtn.querySelector("span:last-child");
-
-    function updateTheme(isDark) {
-        if (isDark) {
-            document.body.classList.add("dark-mode");
-            iconSpan.textContent = "☀️";
-            textSpan.textContent = "Light Mode";
-        } else {
-            document.body.classList.remove("dark-mode");
-            iconSpan.textContent = "🌙";
-            textSpan.textContent = "Dark Mode";
-        }
+    function updateThemeButton(isDark) {
+        document.body.classList.toggle("dark-mode", isDark);
     }
 
-    if (localStorage.getItem("theme") === "dark") updateTheme(true);
-
-    themeToggleBtn.addEventListener("click", () => {
-        const isDark = document.body.classList.contains("dark-mode");
-        updateTheme(!isDark);
-        localStorage.setItem("theme", !isDark ? "dark" : "light");
-    });
+    updateThemeButton(localStorage.getItem("theme") === "dark");
 });
