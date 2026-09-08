@@ -481,7 +481,8 @@ function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usa
     const efficiency = pieces > 0 ? ((totalDrawn > 0 ? totalDrawn : pieces) * prodArea / sheetArea) * 100 : 0;
 
     const layoutText = `${countX} nebeneinander × ${fmt.isRoll ? Math.ceil(qInput/countX) : countY} Reihen`;
-    let detailsHTML = `<div style="color: var(--text-muted);">${layoutText}</div>`;
+    let detailsHTML = `<div style="color: var(--text-muted);">Ausrichtung: ${orientation === "h" ? "horizontal" : "vertikal"}</div>`;
+    detailsHTML += `<div style="color: var(--text-muted);">${layoutText}</div>`;
     
     if(!fmt.isRoll) {
         detailsHTML += `<div style="margin-top: 4px;">Flächenausnutzung (nutzbarer Bereich): <strong>${formatPercent(efficiency)}</strong></div>`;
@@ -502,7 +503,231 @@ function showPreview(fmt, orientation, sheetWidth, sheetHeight, usableWidth, usa
     overlay.style.display = "flex";
 }
 
+let inkScreens = [];
+
+function formatNumber(value, maximumFractionDigits = 2) {
+    return value.toLocaleString("de-DE", { maximumFractionDigits });
+}
+
+function loadInkScreens() {
+    try {
+        inkScreens = JSON.parse(localStorage.getItem("inkScreens") || "[]");
+    } catch (e) {
+        inkScreens = [];
+    }
+}
+
+function saveInkScreens() {
+    localStorage.setItem("inkScreens", JSON.stringify(inkScreens));
+}
+
+function renderInkScreens() {
+    const list = document.getElementById("screenList");
+    list.innerHTML = "";
+
+    if (inkScreens.length === 0) {
+        list.textContent = "Noch keine Siebe gespeichert.";
+        list.className = "screen-list muted";
+        return;
+    }
+
+    inkScreens.forEach(screen => {
+        const item = document.createElement("div");
+        item.className = "screen-item";
+        const meshLabel = document.createElement("strong");
+        meshLabel.textContent = screen.mesh;
+        const consumptionLabel = document.createElement("span");
+        consumptionLabel.textContent = `${formatNumber(screen.consumption, 1)} g/m²`;
+        item.append(meshLabel, consumptionLabel);
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "screen-delete";
+        deleteButton.type = "button";
+        deleteButton.textContent = "×";
+        deleteButton.title = "Sieb löschen";
+        deleteButton.addEventListener("click", () => {
+            inkScreens = inkScreens.filter(savedScreen => savedScreen.id !== screen.id);
+            saveInkScreens();
+            renderInkScreens();
+            calculateInkConsumption();
+        });
+        item.appendChild(deleteButton);
+        list.appendChild(item);
+    });
+    list.className = "screen-list";
+}
+
+function calculateInkConsumption() {
+    const results = document.getElementById("inkResults");
+    const length = parseFloat(document.getElementById("inkLength").value.replace(",", "."));
+    const width = parseFloat(document.getElementById("inkWidth").value.replace(",", "."));
+    const quantity = parseFloat(document.getElementById("inkQuantity").value.replace(",", "."));
+
+    if (inkScreens.length === 0 || !Number.isFinite(length) || length <= 0 || !Number.isFinite(width) || width <= 0 || !Number.isFinite(quantity) || quantity <= 0) {
+        results.innerHTML = "<div class=\"ink-result\">Bitte Sieb, Format und Auflage eingeben.</div>";
+        return;
+    }
+
+    const areaInSquareMeters = (length / 1000) * (width / 1000);
+    results.innerHTML = "";
+    inkScreens.forEach(screen => {
+        const consumption = areaInSquareMeters * quantity * screen.consumption;
+        const result = document.createElement("div");
+        result.className = "ink-result";
+        const details = document.createElement("small");
+        details.textContent = `Siebgewebe: ${screen.mesh}`;
+        const detailsValue = document.createElement("span");
+        detailsValue.textContent = `${formatNumber(screen.consumption, 1)} g/m² theoretischer Verbrauch`;
+        details.append(document.createElement("br"), detailsValue);
+        const resultLabel = document.createTextNode("Theoretischer Farbverbrauch: ");
+        const resultValue = document.createElement("strong");
+        resultValue.textContent = `${formatNumber(consumption)} g`;
+        const resultKg = document.createElement("span");
+        resultKg.textContent = ` (${formatNumber(consumption / 1000)} kg)`;
+        result.append(details, resultLabel, resultValue, resultKg);
+        results.appendChild(result);
+    });
+}
+
+const materialSettingIds = ["materialName", "materialPrice", "sheetLength", "sheetWidth", "materialWaste", "setupCost", "hourlyRate", "productionHours"];
+
+function parseInputValue(id) {
+    return parseFloat(document.getElementById(id).value.replace(",", "."));
+}
+
+function loadMaterialSettings() {
+    try {
+        const settings = JSON.parse(localStorage.getItem("materialSettings") || "{}");
+        materialSettingIds.forEach(id => {
+            if (settings[id] !== undefined) document.getElementById(id).value = settings[id];
+        });
+    } catch (e) {
+        console.error("Fehler beim Laden der Kalkulationsgrunddaten", e);
+    }
+}
+
+function calculateMaterialCosts() {
+    const result = document.getElementById("materialResult");
+    const productLength = parseInputValue("materialProductLength");
+    const productWidth = parseInputValue("materialProductWidth");
+    const quantity = parseInputValue("materialQuantity");
+    const materialPrice = parseInputValue("materialPrice");
+    const sheetLength = parseInputValue("sheetLength");
+    const sheetWidth = parseInputValue("sheetWidth");
+    const waste = parseInputValue("materialWaste");
+    const setupCost = parseInputValue("setupCost");
+    const hourlyRate = parseInputValue("hourlyRate");
+    const productionHours = parseInputValue("productionHours");
+
+    const requiredValues = [productLength, productWidth, quantity, materialPrice, sheetLength, sheetWidth, waste, setupCost, hourlyRate, productionHours];
+    if (requiredValues.some(value => !Number.isFinite(value) || value < 0) || productLength === 0 || productWidth === 0 || quantity === 0 || sheetLength === 0 || sheetWidth === 0) {
+        result.textContent = "Bitte Grunddaten, Produktformat und Auflage vollständig eingeben.";
+        return;
+    }
+
+    const productArea = (productLength / 1000) * (productWidth / 1000);
+    const netMaterialArea = productArea * quantity;
+    const totalMaterialArea = netMaterialArea * (1 + waste / 100);
+    const sheetArea = (sheetLength / 1000) * (sheetWidth / 1000);
+    const sheetsNeeded = Math.ceil(totalMaterialArea / sheetArea);
+    const purchasedArea = sheetsNeeded * sheetArea;
+    const materialCost = purchasedArea * materialPrice;
+    const laborCost = productionHours * hourlyRate;
+    const totalCost = materialCost + setupCost + laborCost;
+
+    result.innerHTML = "";
+    const headline = document.createElement("strong");
+    headline.textContent = "Kalkulation";
+    const materialName = document.getElementById("materialName").value.trim();
+    if (materialName) headline.appendChild(document.createTextNode(` – ${materialName}`));
+    result.appendChild(headline);
+    const grid = document.createElement("div");
+    grid.className = "material-result-grid";
+    [["Benötigte Materialfläche", `${formatNumber(totalMaterialArea)} m²`], ["Benötigte Bogen", `${sheetsNeeded}`], ["Materialkosten", `${formatNumber(materialCost)} €`], ["Rüstkosten", `${formatNumber(setupCost)} €`], ["Maschinen-/Arbeitskosten", `${formatNumber(laborCost)} €`], ["Gesamtkosten", `${formatNumber(totalCost)} €`]].forEach(([label, value]) => {
+        const item = document.createElement("div");
+        item.className = "material-result-item";
+        const labelElement = document.createElement("span");
+        labelElement.textContent = label;
+        const valueElement = document.createElement("strong");
+        valueElement.textContent = value;
+        item.append(labelElement, valueElement);
+        grid.appendChild(item);
+    });
+    result.appendChild(grid);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+    const tabButtons = document.querySelectorAll(".tab-button");
+    const tabPanels = document.querySelectorAll(".tab-panel");
+
+    tabButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            const targetId = button.dataset.tab;
+
+            tabButtons.forEach(tab => {
+                const isActive = tab === button;
+                tab.classList.toggle("active", isActive);
+                tab.setAttribute("aria-selected", isActive ? "true" : "false");
+            });
+
+            tabPanels.forEach(panel => {
+                const isActive = panel.id === targetId;
+                panel.classList.toggle("active", isActive);
+                panel.hidden = !isActive;
+            });
+        });
+    });
+
+    loadInkScreens();
+    renderInkScreens();
+    document.getElementById("inkSettingsBtn").addEventListener("click", () => {
+        const settings = document.getElementById("inkSettings");
+        const isOpen = !settings.hidden;
+        settings.hidden = isOpen;
+        document.getElementById("inkSettingsBtn").setAttribute("aria-expanded", String(!isOpen));
+    });
+    ["inkLength", "inkWidth", "inkQuantity"].forEach(id => {
+        document.getElementById(id).addEventListener("input", calculateInkConsumption);
+        document.getElementById(id).addEventListener("change", calculateInkConsumption);
+    });
+    document.getElementById("addScreenBtn").addEventListener("click", () => {
+        const meshInput = document.getElementById("screenMesh");
+        const consumptionInput = document.getElementById("screenConsumption");
+        const mesh = meshInput.value.trim();
+        const consumption = parseFloat(consumptionInput.value.replace(",", "."));
+        const error = document.getElementById("screenError");
+
+        if (!mesh || !Number.isFinite(consumption) || consumption < 0) {
+            error.textContent = "Bitte Siebgewebe und einen gültigen Farbverbrauch eingeben.";
+            return;
+        }
+
+        inkScreens.push({ id: `screen-${Date.now()}`, mesh, consumption });
+        saveInkScreens();
+        renderInkScreens();
+        meshInput.value = "";
+        consumptionInput.value = "";
+        error.textContent = "";
+        calculateInkConsumption();
+    });
+
+    loadMaterialSettings();
+    document.getElementById("materialSettingsBtn").addEventListener("click", () => {
+        const settings = document.getElementById("materialSettings");
+        const isOpen = !settings.hidden;
+        settings.hidden = isOpen;
+        document.getElementById("materialSettingsBtn").setAttribute("aria-expanded", String(!isOpen));
+    });
+    document.getElementById("saveMaterialSettingsBtn").addEventListener("click", () => {
+        const settings = {};
+        materialSettingIds.forEach(id => settings[id] = document.getElementById(id).value);
+        localStorage.setItem("materialSettings", JSON.stringify(settings));
+        document.getElementById("materialSettingsStatus").textContent = "Grunddaten lokal gespeichert.";
+        calculateMaterialCosts();
+    });
+    ["materialProductLength", "materialProductWidth", "materialQuantity", ...materialSettingIds].forEach(id => {
+        document.getElementById(id).addEventListener("input", calculateMaterialCosts);
+    });
+
     loadCustomFormats();
     renderTables();
 
