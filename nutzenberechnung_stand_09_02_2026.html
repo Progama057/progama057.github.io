@@ -76,6 +76,9 @@
                 <section class="dashboard-widget dashboard-ink-widget">
                     <div class="widget-heading"><h2>Farbverbrauch</h2><span>02</span></div>
                     <p>Verbrauch pro Sieb und Auftrag direkt in kg und g berechnen.</p>
+                    <div class="dashboard-ink-input">
+                        <div class="input-group"><label for="dashboardCoverage">Farbdeckung</label><div class="inline-input"><input type="number" id="dashboardCoverage" min="0" max="100" step="0.1" placeholder="100"><span>%</span></div></div>
+                    </div>
                     <div id="dashboardInkResult" class="dashboard-ink-result">Format und Auflage eingeben, um den Farbverbrauch zu sehen.</div>
                     <button class="widget-link" type="button" data-open-tab="panel-ink">Farbverbrauch öffnen →</button>
                 </section>
@@ -313,11 +316,18 @@
                             <span>Stk.</span>
                         </div>
                     </div>
+                    <div class="input-group">
+                        <label for="inkCoverage">Farbdeckungsgrad</label>
+                        <div class="inline-input">
+                            <input type="number" id="inkCoverage" min="0" max="100" step="0.1" placeholder="100">
+                            <span>%</span>
+                        </div>
+                    </div>
                 </div>
                 <div id="inkResults" class="ink-results" aria-live="polite">
                     <div class="ink-result">Bitte Sieb, Format und Auflage eingeben.</div>
                 </div>
-                <p class="calculation-note">Der Bedruckungsgrad ist fest auf 100 % gesetzt. Dichte und Zuschuss werden in den Einstellungen hinterlegt.</p>
+                <p class="calculation-note">Der Farbdeckungsgrad wird in Prozent eingegeben. Bleibt das Feld leer, werden automatisch 100 % verwendet.</p>
             </div>
         </div>
     </div>
