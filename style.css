@@ -322,6 +322,7 @@ tbody tr:hover { background: var(--table-row-hover); }
 .widget-heading span { color: var(--primary-color); font-weight: 700; }
 .dashboard-inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .dashboard-inputs .input-group { margin-bottom: 0; }
+.dashboard-ink-input .input-group { margin-bottom: 0; }
 .dashboard-comparison { margin-top: 16px; }
 .dashboard-comparison .machine-comparison-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
 .dashboard-ink-widget p { color: var(--text-muted); line-height: 1.5; }
