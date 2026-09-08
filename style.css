@@ -284,8 +284,11 @@ tbody tr:hover { background: var(--table-row-hover); }
     body { padding: 8px; overflow-x: hidden; }
     .app { width: 100%; min-width: 0; padding: 16px; gap: 16px; border-radius: 12px; }
     .theme-toggle-btn { position: static; align-self: flex-end; min-height: 44px; }
-    .tab-navigation { flex: none; width: 100%; gap: 4px; padding: 0 0 8px; margin: 0; scrollbar-width: thin; }
-    .tab-button { flex: 0 0 auto; min-height: 44px; padding: 10px 12px; font-size: 0.9rem; }
+    .tab-navigation { display: grid; grid-template-columns: 1fr 1fr; flex: none; width: 100%; gap: 4px; padding: 0 0 8px; margin: 0; overflow: visible; }
+    .tab-button { min-width: 0; min-height: 44px; padding: 8px 6px; font-size: 0.78rem; line-height: 1.2; text-align: center; white-space: normal; }
+    .tab-button:nth-child(1) { grid-column: 1; grid-row: 1; }
+    .tab-button:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+    .tab-button:nth-child(3) { grid-column: 2; grid-row: 1; }
     .tab-panel.active { width: 100%; gap: 16px; }
     .sidebar { width: 100%; padding: 16px; }
     .main-content { width: 100%; }
