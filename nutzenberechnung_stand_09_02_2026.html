@@ -12,8 +12,15 @@
             <span class="icon">🌙</span>
             <span>Dark Mode</span>
         </button>
+
+        <nav class="tab-navigation" role="tablist" aria-label="Berechnungen">
+            <button class="tab-button active" id="tab-utilization" type="button" role="tab" aria-selected="true" aria-controls="panel-utilization" data-tab="panel-utilization">Nutzenberechnung</button>
+            <button class="tab-button" id="tab-material" type="button" role="tab" aria-selected="false" aria-controls="panel-material" data-tab="panel-material">Material / Produktberechnung / Kalkulation</button>
+            <button class="tab-button" id="tab-ink" type="button" role="tab" aria-selected="false" aria-controls="panel-ink" data-tab="panel-ink">Farbverbrauch</button>
+        </nav>
         
-        <div class="sidebar">
+        <div class="tab-panel active" id="panel-utilization" role="tabpanel" aria-labelledby="tab-utilization">
+            <div class="sidebar">
             <h2 class="section-title">Produktdaten</h2>
 
             <div class="input-group">
@@ -67,18 +74,150 @@
             <div class="input-group">
                 <button id="addFormatBtn" class="btn-primary">Format hinzufügen</button>
             </div>
+            </div>
+
+            <div class="main-content">
+                <h1>Nutzenberechnung & Maschinenauswahl</h1>
+                <p class="hint">
+                    Für jede Maschine wird die beste Anordnung markiert. Klicke auf die Maschinen-Namen, um die Tabellen ein- oder auszuklappen. Bei SPS und Thime werden automatisch 10 mm Greiferkante unten abgezogen.
+                </p>
+
+                <div id="error" class="error"></div>
+                
+                <div id="resultsContainer">
+                </div>
+            </div>
         </div>
 
-        <div class="main-content">
-            <h1>Nutzenberechnung & Maschinenauswahl</h1>
-            <p class="hint">
-                Für jede Maschine wird die beste Anordnung markiert. Klicke auf die Maschinen-Namen, um die Tabellen ein- oder auszuklappen. Bei SPS und Thime werden automatisch 10 mm Greiferkante unten abgezogen.
-            </p>
-
-            <div id="error" class="error"></div>
-            
-            <div id="resultsContainer">
+        <div class="tab-panel placeholder-panel" id="panel-material" role="tabpanel" aria-labelledby="tab-material" hidden>
+            <div class="panel-heading-row">
+                <div>
+                    <h1>Material / Produktberechnung / Kalkulation</h1>
+                    <p class="hint">Hinterlege die Grunddaten und berechne Materialbedarf und Auftragspreis.</p>
                 </div>
+                <button id="materialSettingsBtn" class="btn-secondary" type="button" aria-expanded="false">⚙ Grunddaten</button>
+            </div>
+
+            <section id="materialSettings" class="settings-panel" hidden>
+                <h2 class="section-title">Kalkulationsgrunddaten</h2>
+                <div class="material-settings-grid">
+                    <div class="input-group">
+                        <label for="materialName">Materialbezeichnung</label>
+                        <input type="text" id="materialName" placeholder="z. B. Papier 300 g/m²">
+                    </div>
+                    <div class="input-group">
+                        <label for="materialPrice">Materialpreis</label>
+                        <div class="inline-input"><input type="number" id="materialPrice" min="0" step="0.01" placeholder="z. B. 2,50"><span>€/m²</span></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="sheetLength">Bogenlänge</label>
+                        <div class="inline-input"><input type="number" id="sheetLength" min="0" step="0.1" placeholder="z. B. 700"><span>mm</span></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="sheetWidth">Bogenbreite</label>
+                        <div class="inline-input"><input type="number" id="sheetWidth" min="0" step="0.1" placeholder="z. B. 500"><span>mm</span></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="materialWaste">Ausschuss</label>
+                        <div class="inline-input"><input type="number" id="materialWaste" min="0" step="0.1" placeholder="z. B. 5"><span>%</span></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="setupCost">Rüstkosten</label>
+                        <div class="inline-input"><input type="number" id="setupCost" min="0" step="0.01" placeholder="z. B. 35"><span>€</span></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="hourlyRate">Maschinen-/Stundensatz</label>
+                        <div class="inline-input"><input type="number" id="hourlyRate" min="0" step="0.01" placeholder="z. B. 85"><span>€/h</span></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="productionHours">Arbeitszeit</label>
+                        <div class="inline-input"><input type="number" id="productionHours" min="0" step="0.1" placeholder="z. B. 1,5"><span>h</span></div>
+                    </div>
+                </div>
+                <button id="saveMaterialSettingsBtn" class="btn-primary material-save-btn" type="button">Grunddaten speichern</button>
+                <p id="materialSettingsStatus" class="settings-status" aria-live="polite"></p>
+            </section>
+
+            <section class="calculation-panel">
+                <h2 class="section-title">Produktkalkulation</h2>
+                <div class="calculation-grid material-calculation-grid">
+                    <div class="input-group">
+                        <label for="materialProductLength">Produktlänge</label>
+                        <div class="inline-input"><input type="number" id="materialProductLength" min="0" step="0.1" placeholder="40"><span>mm</span></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="materialProductWidth">Produktbreite</label>
+                        <div class="inline-input"><input type="number" id="materialProductWidth" min="0" step="0.1" placeholder="40"><span>mm</span></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="materialQuantity">Auflage</label>
+                        <div class="inline-input"><input type="number" id="materialQuantity" min="0" step="1" placeholder="1000"><span>Stk.</span></div>
+                    </div>
+                </div>
+                <div id="materialResult" class="material-result" aria-live="polite">Bitte Grunddaten, Produktformat und Auflage eingeben.</div>
+                <p class="calculation-note">Die Materialfläche wird aus Format × Auflage berechnet und um den Ausschuss erhöht.</p>
+            </div>
+        </div>
+
+        <div class="tab-panel placeholder-panel" id="panel-ink" role="tabpanel" aria-labelledby="tab-ink" hidden>
+            <div class="panel-heading-row">
+                <div>
+                    <h1>Farbverbrauch</h1>
+                    <p class="hint">Berechne den theoretischen Farbverbrauch eines Druckauftrags. Das Format wird in mm eingegeben und intern in m² umgerechnet.</p>
+                </div>
+                <button id="inkSettingsBtn" class="btn-secondary" type="button" aria-expanded="false">⚙ Siebe einstellen</button>
+            </div>
+
+            <section id="inkSettings" class="settings-panel" hidden>
+                <h2 class="section-title">Siebe verwalten</h2>
+                <div class="settings-form">
+                    <div class="input-group">
+                        <label for="screenMesh">Siebgewebe</label>
+                        <input type="text" id="screenMesh" placeholder="z. B. 180-27">
+                    </div>
+                    <div class="input-group">
+                        <label for="screenConsumption">Theoretischer Farbverbrauch</label>
+                        <div class="inline-input">
+                            <input type="number" id="screenConsumption" min="0" step="0.1" placeholder="z. B. 17">
+                            <span>g/m²</span>
+                        </div>
+                    </div>
+                    <button id="addScreenBtn" class="btn-primary" type="button">Sieb speichern</button>
+                </div>
+                <p id="screenError" class="error"></p>
+                <div id="screenList" class="screen-list"></div>
+            </section>
+
+            <section class="calculation-panel">
+                <h2 class="section-title">Verbrauch berechnen</h2>
+                <div class="calculation-grid">
+                    <div class="input-group">
+                        <label for="inkLength">Format Länge</label>
+                        <div class="inline-input">
+                            <input type="number" id="inkLength" min="0" step="0.1" placeholder="40">
+                            <span>mm</span>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="inkWidth">Format Breite</label>
+                        <div class="inline-input">
+                            <input type="number" id="inkWidth" min="0" step="0.1" placeholder="40">
+                            <span>mm</span>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="inkQuantity">Auflage</label>
+                        <div class="inline-input">
+                            <input type="number" id="inkQuantity" min="0" step="1" placeholder="1000">
+                            <span>Stk.</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="inkResults" class="ink-results" aria-live="polite">
+                    <div class="ink-result">Bitte Sieb, Format und Auflage eingeben.</div>
+                </div>
+                <p class="calculation-note">Verbrauch = (Länge in mm ÷ 1000) × (Breite in mm ÷ 1000) × Auflage × theoretischer Farbverbrauch</p>
+            </div>
         </div>
     </div>
 
